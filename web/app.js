@@ -3,12 +3,15 @@ import { downloadCsv, exportChart } from './exports.js';
 import { initializeComparison } from './comparison.js';
 import { initializeHarmonization, renderHarmonizationExample } from './harmonization.js';
 import { validateRegions, regionFromSearch, validateRegionalDashboard, createRegionLoader } from './regions.js';
+import { subsetRecord, areaDescription } from './area.js';
+import { createAreaControls } from './area-controls.js';
 
 const state = {
   series: 'main', start: '2001-01', end: '2025-12', selected: '2025-01',
   data: null, points: null, county: null, map: null, pointLayer: null,
   mapError: null, heatmapBound: false, countyBounds: null, mapRows: [],
   registry: null, region: null, loadGeneration: 0,
+  countyData: null, countyPoints: null, area: null, areaControls: null, countySeries: 'main',
 };
 const $ = (id) => document.getElementById(id);
 const number = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 });
@@ -84,6 +87,11 @@ async function selectRegion(region, updateUrl = false) {
   text('footer-region', `${countyName(region)} · Historical Hotspot Harmonization`);
   $('dashboard').hidden = true;
   calendarControls(true);
+  state.areaControls?.dispose(); state.areaControls = null;
+  if (state.area) state.series = state.countySeries;
+  state.area = null; state.countyData = null; state.countyPoints = null;
+  $('series').querySelector('[value="main"]').disabled = false;
+  $('coordinate-entry').open = false;
   state.map?.remove(); state.map = null; state.pointLayer = null; state.countyBounds = null; state.mapRows = [];
   state.data = null; state.points = null; state.county = null; state.mapError = null; state.heatmapBound = false;
   $('county-map').replaceChildren();
@@ -98,7 +106,7 @@ async function selectRegion(region, updateUrl = false) {
     if (!files || generation !== state.loadGeneration) return;
     const data = validateRegionalDashboard(files.data, region);
     if (!window.Plotly) throw new Error('The local Plotly chart asset could not be loaded.');
-    state.data = data;
+    state.data = data; state.countyData = data;
     const mapErrors = [];
     if (files.points) {
       try { state.points = validatePoints(files.points); } catch (error) { mapErrors.push(`Point records unavailable: ${error.message}`); }
@@ -107,6 +115,7 @@ async function selectRegion(region, updateUrl = false) {
     else mapErrors.push(`County geometry unavailable: ${files.errors.county ?? 'The boundary file is missing or invalid.'}`);
     if (!window.L) mapErrors.push('The local Leaflet map asset could not be loaded.');
     state.mapError = mapErrors.join(' ') || null;
+    state.countyPoints = state.points;
     calendarControls(false);
     $('start-month').value = state.start; $('end-month').value = state.end; $('series').value = state.series;
     $('county-map').setAttribute('aria-label', `Observed Hotspots In ${countyName(region)}`);
@@ -114,6 +123,7 @@ async function selectRegion(region, updateUrl = false) {
     $('load-status').hidden = true;
     $('dashboard').hidden = false;
     setupMap();
+    updateAreaAvailability();
     await Promise.all([render(), initializeHarmonization(data)]);
   } catch (error) {
     if (generation !== state.loadGeneration) return;
@@ -123,6 +133,36 @@ async function selectRegion(region, updateUrl = false) {
     showLoadStatus(`${countyName(region)} record unavailable. ${error.message} Select another county or reload to retry.`, true);
   }
 }
+
+function updateAreaAvailability() {
+  const available = Boolean(state.map && state.county && state.countyPoints);
+  document.querySelectorAll('#area-controls button, #area-controls input').forEach((control) => { control.disabled = !available; });
+  $('clear-area').disabled = !available || !state.area;
+  if (!available) text('area-status', 'Area selection requires the county boundary, hotspot points and map to load. Reload or choose another county.');
+}
+
+async function applyArea(area) {
+  if (area) {
+    const subset = subsetRecord(state.countyData, state.countyPoints, area);
+    if (!state.area) state.countySeries = state.series;
+    state.data = subset.data; state.points = subset.points;
+    if (state.series === 'main') state.series = 'snpp';
+  } else {
+    state.data = state.countyData; state.points = state.countyPoints;
+    if (state.area) state.series = state.countySeries;
+  }
+  state.area = area;
+  $('series').querySelector('[value="main"]').disabled = Boolean(area);
+  $('series').value = state.series;
+  text('action-status', '');
+  await render();
+}
+
+function areaExportFields() {
+  return [state.region.geoid, areaDescription(state.area), state.area ? JSON.stringify(state.area) : '', state.area ? 'Raw observations; no custom-area calibration' : 'County record'];
+}
+const areaExportHeaders = ['county_geoid', 'area_description', 'area_geometry', 'calibration_scope'];
+const areaFilename = () => state.area ? '-custom-area' : '';
 
 async function initialize() {
   bindControls();
@@ -168,6 +208,9 @@ function bindControls() {
   $('previous-month').addEventListener('click', () => shiftMonth(-1));
   $('next-month').addEventListener('click', () => shiftMonth(1));
   $('reset-filters').addEventListener('click', () => {
+    state.areaControls?.clear();
+    state.area = null; state.data = state.countyData; state.points = state.countyPoints;
+    $('series').querySelector('[value="main"]').disabled = false;
     state.start = '2001-01'; state.end = '2025-12'; state.selected = '2025-01'; state.series = 'main';
     $('start-month').value = state.start; $('end-month').value = state.end; $('series').value = state.series;
     $('filter-error').hidden = true;
@@ -176,7 +219,7 @@ function bindControls() {
   $('download-points').addEventListener('click', () => {
     if (!state.data || !state.points) return;
     const rows = pointsInRange(state.points, state.start, state.end, state.series, state.data.meta.switch_year);
-    downloadCsv(`flarefront-${state.region.id}-observed-${state.series}-${state.start}-${state.end}.csv`, state.points.columns, rows);
+    downloadCsv(`flarefront-${state.region.id}${areaFilename()}-observed-${state.series}-${state.start}-${state.end}.csv`, [...state.points.columns, ...areaExportHeaders], rows.map((row) => [...row, ...areaExportFields()]));
     text('action-status', `Downloaded ${number.format(rows.length)} observed point records for the current date range and source selection.`);
   });
   $('download-calendar').addEventListener('click', () => {
@@ -185,9 +228,9 @@ function bindControls() {
     const rows = months.map((row) => {
       const value = seriesValue(row, state.series);
       const baseline = state.series === 'main' ? { value: row.median, count: row.baseline_n } : historicalMedian(state.data.months, row, state.series);
-      return [monthKey(row.year, row.month), state.series, value, sourceForMonth(state.series, row.year, state.data.meta.switch_year), units(), baseline.value, baseline.count, value === null || baseline.value === null ? null : value - baseline.value, row.terra, row.aqua, row.snpp, row.main];
+      return [monthKey(row.year, row.month), state.series, value, sourceForMonth(state.series, row.year, state.data.meta.switch_year), units(), baseline.value, baseline.count, value === null || baseline.value === null ? null : value - baseline.value, row.terra, row.aqua, row.snpp, row.main, ...areaExportFields()];
     });
-    downloadCsv(`flarefront-${state.region.id}-calendar-${state.series}-${state.start}-${state.end}.csv`, ['month', 'selected_series', 'selected_value', 'selected_source', 'selected_units', 'historical_median', 'baseline_years', 'difference_from_median', 'terra_observed', 'aqua_observed', 'snpp_observed', 'main_terra_equivalent'], rows);
+    downloadCsv(`flarefront-${state.region.id}${areaFilename()}-calendar-${state.series}-${state.start}-${state.end}.csv`, ['month', 'selected_series', 'selected_value', 'selected_source', 'selected_units', 'historical_median', 'baseline_years', 'difference_from_median', 'terra_observed', 'aqua_observed', 'snpp_observed', 'main_terra_equivalent', ...areaExportHeaders], rows);
     text('action-status', `Downloaded ${rows.length} calendar months. Empty values indicate unavailable source periods.`);
   });
   document.querySelectorAll('[data-export]').forEach((button) => button.addEventListener('click', async () => {
@@ -198,7 +241,7 @@ function bindControls() {
     button.disabled = true;
     text('action-status', `Preparing the ${format.toUpperCase()} figure…`);
     try {
-      await exportChart($(id), format, { filename: `flarefront-${state.region.id}-${id}-${state.series}-${id === 'heatmap' ? `${state.start}-${state.end}` : state.selected}`, widthInches: 7.16, heightInches: id === 'heatmap' ? 5.37 : 3.58 });
+      await exportChart($(id), format, { filename: `flarefront-${state.region.id}${areaFilename()}-${id}-${state.series}-${id === 'heatmap' ? `${state.start}-${state.end}` : state.selected}`, widthInches: 7.16, heightInches: id === 'heatmap' ? 5.37 : 3.58 });
       if (generation === state.loadGeneration) text('action-status', `${format.toUpperCase()} figure downloaded.`);
     } catch (error) { if (generation === state.loadGeneration) text('action-status', `Figure export failed: ${error.message}`); }
     finally { if (generation === state.loadGeneration) button.disabled = false; }
@@ -224,7 +267,18 @@ function shiftMonth(amount) {
 async function render() {
   if (!state.data) return;
   const record = selectedRecord();
-  renderHarmonizationExample(state.data, record);
+  const customArea = Boolean(state.area);
+  $('harmonization-example').hidden = customArea;
+  $('harmonization-details').hidden = customArea;
+  $('area-summary').hidden = !customArea;
+  $('area-key').hidden = !customArea;
+  $('area-methods-note').hidden = !customArea;
+  text('methods-label', customArea ? 'County Methods' : 'Methods');
+  text('header-period', `${state.region.city} · ${customArea ? 'Selected Area' : 'County-Wide Record'} · UTC`);
+  if (customArea) {
+    text('area-summary-description', `${monthLabel(record)} · ${areaDescription(state.area)} · Intersection With ${countyName(state.region)}`);
+    for (const sensor of ['terra', 'aqua', 'snpp']) text(`area-${sensor}-count`, format(record[sensor]));
+  } else renderHarmonizationExample(state.data, record);
   const months = filteredMonths();
   const value = seriesValue(record, state.series);
   const source = sourceForMonth(state.series, record.year, state.data.meta.switch_year);
@@ -249,14 +303,18 @@ async function render() {
   for (const id of ['stat-main', 'stat-points', 'stat-median', 'stat-change']) {
     $(id).classList.toggle('unavailable', $(id).textContent === 'Unavailable');
   }
-  text('calendar-description', `${SERIES_NAMES[state.series]}${state.series === 'main' ? state.data.meta.alpha === null ? ' · calibration unavailable' : ` · α = ${state.data.meta.alpha.toFixed(4)}` : ''} · ${units()}. Each cell is one calendar month; gray cells are unavailable. Colors are logarithmic, with fixed bounds for each series across date filters.`);
+  text('calendar-title', customArea ? 'Area Calendar' : 'Monthly Calendar');
+  text('map-title', customArea ? 'Selected Area' : 'Hotspot Map');
+  text('calendar-description', `${SERIES_NAMES[state.series]}${state.series === 'main' ? state.data.meta.alpha === null ? ' · calibration unavailable' : ` · α = ${state.data.meta.alpha.toFixed(4)}` : ''} · ${units()}. Each cell is one calendar month; gray cells are unavailable. Colors are logarithmic, with fixed bounds for each series and area across date filters.`);
   text('switch-caption', state.series === 'main' ? state.data.meta.alpha === null ? `County calibration is unestimable. Main-series values from ${state.data.meta.switch_year} are withheld; select a raw sensor to inspect observed counts.` : `Source switch in ${state.data.meta.switch_year}: observed Terra counts before the switch; α × Suomi-NPP counts afterward. Retrospective estimates, not incident counts.` : 'Unadjusted qualifying observations. Sensor availability and processing versions vary across the historical record.');
   text('weekly-description', `${monthLabel(record)} · ${SERIES_NAMES[state.series]}. ${value === null ? 'This source is unavailable for the selected month.' : `Weekly pieces sum to ${format(value)} ${units().toLowerCase()}.`}`);
   text('map-description', `${monthLabel(record)} · ${SERIES_NAMES[source]} observed detections`);
   $('point-key').style.backgroundColor = colors[source];
   text('point-key-label', `${SERIES_NAMES[source]} Detection`);
   text('map-caption', value === null ? 'This source is unavailable for the selected month; no detections are plotted.' : selectedPoints === null ? `Point records unavailable. ${state.mapError ?? ''}` : `${number.format(selectedPoints.length)} raw hotspot points. ${state.series === 'main' && source === 'snpp' ? `The calendar value is scaled by α = ${state.data.meta.alpha.toFixed(4)}; map points remain observations.` : 'Multiple detections may belong to the same fire.'} County outline: Census 2026. Hotspot coverage is limited to ${countyName(state.region)}.`);
-  text('download-description', `${countyName(state.region)} · ${state.start} through ${state.end} · ${SERIES_NAMES[state.series]}. Point CSV contains the source's observed records; calendar CSV keeps estimates separate.`);
+  if (customArea) $('map-caption').textContent += ' Only detections inside both the selected shape and county are shown.';
+  text('region-scope', customArea ? `Selected area ∩ ${countyName(state.region)}. All charts and CSVs use this intersection. Raw sensor counts only; county calibration does not transfer to this area. Zero means no qualifying detections reported, not an absence of fire.` : 'Historical observations for research, land management and responder planning. Coverage is county-wide; this is not a live warning service. Hotspots are satellite detections, not individual fires.');
+  text('download-description', `${countyName(state.region)} · ${areaDescription(state.area)} · ${state.start} through ${state.end} · ${SERIES_NAMES[state.series]}. CSVs include the county and area definition. ${customArea ? 'Counts are raw; no custom-area calibration is fitted.' : 'Point CSV contains observed records; calendar CSV keeps estimates separate.'}`);
   $('download-points').disabled = !state.points;
   renderPeaks(months);
   renderMap(value === null ? [] : selectedPoints ?? []);
@@ -383,6 +441,8 @@ function setupMap() {
     state.map.attributionControl.setPrefix(false);
     state.map.attributionControl.addAttribution('Census 2026 county boundary');
     state.pointLayer = L.layerGroup().addTo(state.map);
+    if (state.countyPoints) state.areaControls = createAreaControls({ map: state.map, county: state.county, onApply: applyArea });
+    updateAreaAvailability();
   } catch (error) {
     state.mapError = `County map could not be rendered: ${error.message}`;
     text('map-caption', state.mapError);
@@ -414,7 +474,7 @@ function appendTable(target, headers, rows) {
 }
 
 function renderMethods() {
-  const { meta, validation, quality } = state.data;
+  const { meta, validation, quality } = state.countyData;
   for (const id of ['validation-metrics', 'quality-summary', 'version-summary', 'limitations-list', 'source-list']) $(id).replaceChildren();
   text('header-period', `${state.region.city} · County-Wide Record · UTC`);
   text('footer-region', `${countyName(state.region)} · Historical Hotspot Harmonization`);
@@ -438,8 +498,8 @@ function renderMethods() {
   versionText.textContent = `Processing-version strings are preserved in the observed point CSV. The historical record is not assumed to have uniform processing.${meta.alpha === null ? ' Adjusted errors are withheld because county calibration is unestimable.' : ' The grouped held-out errors below compare the county calibration across the observed MODIS version transition.'}`;
   $('version-summary').append(versionText);
   if (Array.isArray(versions) && versions.length) appendTable($('version-summary'), ['Evaluation Years', 'Months', 'Adjusted MAE', 'Unscaled MAE', 'Seasonal MAE'], versions.map((group) => [`${group.start_year}–${group.end_year}`, group.months, format(group.adjusted), format(group.unscaled), format(group.seasonal)]));
-  for (const limitation of state.data.limitations ?? []) { const item = document.createElement('li'); item.textContent = limitation; $('limitations-list').append(item); }
-  for (const source of state.data.sources ?? []) {
+  for (const limitation of state.countyData.limitations ?? []) { const item = document.createElement('li'); item.textContent = limitation; $('limitations-list').append(item); }
+  for (const source of state.countyData.sources ?? []) {
     const item = document.createElement('li');
     try { const url = new URL(source.url); if (!['https:', 'http:'].includes(url.protocol)) throw new Error('Unsupported protocol'); const link = document.createElement('a'); link.href = url.href; link.textContent = source.name; link.target = '_blank'; link.rel = 'noopener noreferrer'; item.append(link); }
     catch { item.textContent = source.name; }

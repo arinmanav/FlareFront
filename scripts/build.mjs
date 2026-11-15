@@ -6,7 +6,7 @@ import { validateRegions, validateRegionalDashboard } from '../web/regions.js';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const source = join(root, 'web');
 const destination = resolve(root, 'dist');
-const runtimeFiles = ['index.html', 'styles.css', 'app.js', 'calendar.js', 'exports.js', 'harmonization.js', 'comparison.js', 'regions.js'];
+const runtimeFiles = ['index.html', 'styles.css', 'app.js', 'calendar.js', 'exports.js', 'harmonization.js', 'comparison.js', 'regions.js', 'area.js', 'area-controls.js'];
 const runtimeDirectories = ['assets', 'data', 'vendor', 'figures'];
 const notices = ['LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES'];
 const requiredData = ['dashboard.json', 'points.json', 'county.geojson', 'hotspots.csv', 'calendar.csv', 'regions.json', 'harmonization-study.json'];

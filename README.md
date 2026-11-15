@@ -10,6 +10,10 @@ Explore a year-by-month calendar, select a month to inspect its county map and w
 
 The website has two views: **Fire Calendar** and **Compare Locations**. The calendar opens with observed Terra counts, raw VIIRS counts and scaled VIIRS counts, followed by the calendar and map. Methods, sources and downloads expand on demand. Compare Locations provides a rotatable 3D view of month, county and detection count, plus a 2D agreement plot and an error table. Switch between raw counts, count ratio calibration and spatial aggregation. The county-wide records retain their original data and independent coefficients.
 
+**Explore a local area:** choose a county, then select **Draw Area** and click or tap two opposite corners on the map. Alternatively, open **Enter Coordinates**, enter WGS 84 latitude and longitude plus a radius of 0.1–100 km, and apply. The center must be inside the selected county. All results use the intersection with that county; observations outside the four processed counties are unavailable. **Clear Area** restores the county record; **County Extent** changes only the map viewport. Escape cancels drawing.
+
+Area selections update the calendar, mapped observations, weekly and annual totals, historical medians and CSV downloads together. Custom areas show **raw Terra, Aqua and Suomi-NPP counts only**: county coefficients and validation results do not transfer to arbitrary areas. CSVs retain source provenance and add county GEOID, area definition and calibration scope. Empty source periods remain unavailable; available periods without matching observations show zero. Circle filtering uses great-circle distance on a sphere with radius 6,371,008.8 m; rectangles include their boundary. Coordinate entry also supports keyboard use. These historical records support research, land management and responder planning; the site is not a live warning or dispatch service.
+
 | City | County Coverage | Qualifying Observations | Adjusted MAE | Seasonal MAE | Held-Out Criterion |
 | --- | --- | ---: | ---: | ---: | --- |
 | Los Angeles | Los Angeles | 26,113 | 4.924891 | 18.513889 | Passed |

@@ -94,6 +94,23 @@ select { max-width:100%; }
 .map-legend>span { display:flex; align-items:center; gap:7px; }
 .point-key { width:7px; height:7px; border-radius:50%; background:#df6b25; }
 .boundary-key { width:16px; height:10px; border:1.6px solid #415c73; }
+.area-boundary-key { width:16px; height:10px; border:2px dashed #63568b; }
+.area-controls { padding-top:12px; }
+.area-actions { display:flex; align-items:center; gap:18px; }
+.area-actions button,.area-controls summary { min-height:44px; }
+.area-controls summary { display:flex; align-items:center; width:fit-content; }
+.area-controls .inline-disclosure summary::before { content:'+'; margin-right:8px; }
+.area-controls .inline-disclosure[open] summary::before { content:'−'; }
+.coordinate-form { display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:6px 0; }
+.coordinate-form label { display:flex; flex-direction:column; gap:6px; font-size:12px; color:var(--muted); min-width:0; }
+.coordinate-form input { width:100%; min-width:0; min-height:44px; padding:8px; border:1px solid #bac5cf; border-radius:2px; background:#fff; font-size:16px; }
+.coordinate-form button { align-self:end; min-height:44px; }
+.coordinate-form p { grid-column:1/-1; margin:0; }
+.area-summary { padding:20px 0 24px; border-bottom:1px solid var(--line); margin-bottom:24px; }
+.area-counts { display:flex; flex-wrap:wrap; gap:20px 48px; padding:16px 0 4px; }
+.area-counts span { display:block; font-size:12px; color:var(--muted); }
+.area-counts strong { display:block; font-size:28px; font-weight:500; font-variant-numeric:tabular-nums; }
+#county-map.drawing-area,#county-map.drawing-area .leaflet-interactive { cursor:crosshair; }
 .panel-description { color:var(--muted); font-size:12px; margin-top:8px; }
 .caption { font-size:12px; line-height:1.5; color:var(--muted); margin-top:8px; }
 .scale-note { color:var(--muted); font-size:11px; margin-top:6px; }
@@ -203,7 +220,7 @@ footer small { font-size:10px; }
   .series-control { width:100%; justify-content:space-between; }
   .series-control select { max-width:65%; font-size:12px; }
   .workspace { grid-template-columns:1fr; gap:15px; }
-  #county-map { height:180px; }
+  #county-map { height:300px; }
   .heatmap { height:440px; }
   .map-legend { padding-top:7px; font-size:11px; }
   .workspace .panel-description,.workspace #map-caption { font-size:11px; }
