@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "purpose": "Exploratory comparison of spatially aggregated VIIRS detections with monthly Terra counts",
+  "reference": "terra",
+  "source": "snpp",
+  "training_start": 2013,
+  "training_end": 2019,
+  "validation_years": [2016, 2017, 2018, 2019],
+  "benchmark_start": 2020,
+  "benchmark_end": 2025,
+  "benchmark_status": "Previously inspected archive; exploratory, not an untouched confirmation set",
+  "grid": {
+    "cell_size_metres": 1000,
+    "projection": "Spherical cylindrical equal-area, standard parallel 36 degrees, longitude origin 0 degrees, latitude origin 0 degrees",
+    "radius_metres": 6371007.180918475,
+    "standard_parallel_degrees": 36,
+    "offset_fractions": [[0, 0], [0.5, 0], [0, 0.5], [0.5, 0.5]],
+    "aggregation": "Mean occupied-cell count over four fixed grid origins, summed over acquisition groups within each UTC month",
+    "acquisition_gap_minutes": 20,
+    "acquisition_grouping": "Sorted source detections share a group while adjacent times are at most 20 minutes apart on the same UTC date; this is an acquisition proxy, not an orbit identifier"
+  },
+  "selection": {
+    "metric": "pooled_out_of_time_mae",
+    "minimum_relative_improvement": 0.05,
+    "maximum_peak_mae_ratio": 1.1,
+    "peak_months": 5,
+    "fallback": "ratio",
+    "tie_order": "candidate list order"
+  },
+  "candidates": [
+    {"id": "ratio", "feature": "snpp", "fit": "ratio"},
+    {"id": "lad", "feature": "snpp", "fit": "lad"},
+    {"id": "spatial_ratio", "feature": "occupancy", "fit": "ratio"},
+    {"id": "spatial_lad", "feature": "occupancy", "fit": "lad"}
+  ],
+  "ratio": "Coefficient = sum(training Terra counts) / sum(training feature). Output = coefficient times feature.",
+  "lad": "Nonnegative slope through the origin minimizing training absolute error: the lower weighted median of Terra/feature with positive feature weights. Zero source remains zero. No intercept or smoothing.",
+  "limitations": [
+    "Grid size, offsets, grouping rule and candidate list were specified before computing this spatial comparison. Earlier count-model experiments had already inspected the same archive years.",
+    "Spatial occupancy is a positive-detection density proxy; it does not recreate MODIS footprints, radiances, detection thresholds or missing observations.",
+    "Terra and Suomi-NPP observe at different local times. Spatial aggregation does not synchronize their overpasses.",
+    "Point-only archives lack cloud-free observation opportunities. Zero qualifying detections does not establish no fire.",
+    "Models are selected using 2013-2019 forward validation only. Every candidate is reported on the same 72 later months, including regressions.",
+    "Spherical grid lengths are nominal. Four grid origins reduce boundary dependence; they are not independent samples or an uncertainty estimate.",
+    "Agreement with Terra counts is not incident detection accuracy, burned area, ignition prediction or firefighting effectiveness."
+  ],
+  "sources": [
+    {"title": "NASA FIRMS VIIRS Product Description", "url": "https://firms.modaps.eosdis.nasa.gov/content/descriptions/FIRMS_VIIRS_Firehotspots.html"},
+    {"title": "Schroeder et al. (2014), VIIRS 375 m Active Fire Product", "url": "https://directreadout.sci.gsfc.nasa.gov/publications_documents/Schroeder_et_al_2014b_RSE.pdf"}
+  ]
+}

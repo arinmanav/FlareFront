@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "license": "Apache-2.0",
-  "description": "MODIS and VIIRS county calendars with retrospective location and time prediction",
+  "description": "MODIS and VIIRS county calendars and four-county harmonization comparisons",
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",

@@ -1,15 +1,14 @@
 import { MONTH_NAMES, SERIES_NAMES, monthKey, monthsInRange, seriesValue, sourceForMonth, pointsInRange, weeklyBins, historicalMedian, annualRawCounts, logColorPosition } from './calendar.js';
 import { downloadCsv, exportChart } from './exports.js';
-import { initializeDecisions } from './decisions-view.js';
+import { initializeComparison } from './comparison.js';
 import { initializeHarmonization, renderHarmonizationExample } from './harmonization.js';
 import { validateRegions, regionFromSearch, validateRegionalDashboard, createRegionLoader } from './regions.js';
-import { initializePrediction, selectPredictionRegion } from './prediction.js';
 
 const state = {
   series: 'main', start: '2001-01', end: '2025-12', selected: '2025-01',
   data: null, points: null, county: null, map: null, pointLayer: null,
   mapError: null, heatmapBound: false, countyBounds: null, mapRows: [],
-  registry: null, region: null, loadGeneration: 0, decisionReady: null,
+  registry: null, region: null, loadGeneration: 0,
 };
 const $ = (id) => document.getElementById(id);
 const number = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 });
@@ -116,33 +115,23 @@ async function selectRegion(region, updateUrl = false) {
     $('dashboard').hidden = false;
     setupMap();
     await Promise.all([render(), initializeHarmonization(data)]);
-    if (generation !== state.loadGeneration) return;
-    selectPredictionRegion(region.id);
   } catch (error) {
     if (generation !== state.loadGeneration) return;
     state.data = null; state.points = null; state.county = null;
     $('dashboard').hidden = true;
     calendarControls(true);
-    showLoadStatus(`${countyName(region)} record unavailable. ${error.message} Select another city or reload to retry.`, true);
+    showLoadStatus(`${countyName(region)} record unavailable. ${error.message} Select another county or reload to retry.`, true);
   }
 }
 
 async function initialize() {
   bindControls();
   calendarControls(true);
-  const predictionReady = initializePrediction((id) => {
-    const region = state.registry?.regions.find((entry) => entry.id === id);
-    if (region && region.id !== state.region?.id) selectRegion(region, true);
-  });
-  const decisionEvidence = Promise.all([fetchJson('data/dashboard.json'), fetchJson('data/points.json')]);
-  state.decisionReady = decisionEvidence.then(([data, points]) => initializeDecisions(validateRegionalDashboard(data, { geoid: '06037' }), validatePoints(points))).catch(() => {
-    text('decision-load-status', 'The original Los Angeles County evidence is unavailable. Reload to retry.');
-    $('decision-content').hidden = true;
-  });
+  const comparisonReady = initializeComparison();
   try {
     state.registry = validateRegions(await fetchJson('data/regions.json'));
     for (const region of state.registry.regions) {
-      const option = document.createElement('option'); option.value = region.id; option.textContent = region.city; $('region-select').append(option);
+      const option = document.createElement('option'); option.value = region.id; option.textContent = countyName(region); $('region-select').append(option);
     }
     $('region-select').disabled = false;
     $('region-select').addEventListener('change', () => {
@@ -155,9 +144,8 @@ async function initialize() {
     });
     await selectRegion(regionFromSearch(state.registry, location.search));
   } catch (error) { calendarControls(true); showLoadStatus(`County records unavailable. ${error.message}`, true); }
-  await predictionReady;
-  if (state.region) selectPredictionRegion(state.region.id);
-  if (location.hash && !['#calendar', '#decisions'].includes(location.hash)) revealWorkflowTarget(location.hash.slice(1));
+  await comparisonReady;
+  if (location.hash && !['#calendar', '#comparison'].includes(location.hash)) revealWorkflowTarget(location.hash.slice(1));
 }
 
 function bindControls() {
@@ -468,7 +456,7 @@ function resizeVisibleCharts() {
 }
 
 function openView(name, focus = false) {
-  for (const view of ['calendar', 'decisions']) {
+  for (const view of ['calendar', 'comparison']) {
     const active = view === name;
     $(`${view}-view`).hidden = !active;
     $(`${view}-tab`).setAttribute('aria-selected', String(active));
@@ -496,24 +484,24 @@ function revealWorkflowTarget(target) {
 
 function restoreViewFromHash() {
   const target = location.hash.slice(1);
-  const decisionTarget = $(target)?.closest('#decisions-view');
-  openView(target === 'decisions' || decisionTarget ? 'decisions' : 'calendar');
-  if (target && !['calendar', 'decisions'].includes(target)) revealWorkflowTarget(target);
+  const comparisonTarget = $(target)?.closest('#comparison-view');
+  openView(target === 'comparison' || comparisonTarget ? 'comparison' : 'calendar');
+  if (target && !['calendar', 'comparison'].includes(target)) revealWorkflowTarget(target);
 }
 
-for (const name of ['calendar', 'decisions']) {
+for (const name of ['calendar', 'comparison']) {
   $(`${name}-tab`).addEventListener('click', () => { location.hash = name; openView(name); });
   $(`${name}-tab`).addEventListener('keydown', (event) => {
     if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
     event.preventDefault();
-    const target = event.key === 'Home' ? 'calendar' : event.key === 'End' ? 'decisions' : name === 'calendar' ? 'decisions' : 'calendar';
+    const target = event.key === 'Home' ? 'calendar' : event.key === 'End' ? 'comparison' : name === 'calendar' ? 'comparison' : 'calendar';
     location.hash = target; openView(target, true);
   });
 }
-document.querySelectorAll('[data-open-decisions]').forEach((button) => button.addEventListener('click', () => {
-  const target = button.dataset.openDecisions;
-  history.pushState(null, '', `#${target || 'decisions'}`); openView('decisions');
-  if (target) revealWorkflowTarget(target);
+document.querySelectorAll('[data-open-comparison]').forEach((link) => link.addEventListener('click', (event) => {
+  event.preventDefault();
+  location.hash = 'comparison';
+  openView('comparison');
 }));
 document.querySelectorAll('[data-calendar-target]').forEach((link) => link.addEventListener('click', (event) => {
   event.preventDefault();

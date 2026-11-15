@@ -1,6 +1,6 @@
 # FlareFront
 
-**Harmonizing MODIS and VIIRS hotspot records across four California county regions, with historical calendars, mapped observations, multimodal evidence and an evaluated location-and-time prediction exercise.**
+**Harmonizing MODIS and VIIRS hotspot records across four California counties, with historical calendars, mapped observations and reproducible method comparisons.**
 
 2001–2025 · 300 months per county · 46,473 qualifying observations · 39 source archives
 
@@ -8,7 +8,7 @@
 
 Explore a year-by-month calendar, select a month to inspect its county map and weekly totals, and compare the unadjusted Terra MODIS, Aqua MODIS, and Suomi-NPP VIIRS records. Date and source filters follow through to CSV downloads; chart controls export PNG and SVG figures. The static application bundles its data and browser libraries, with no API key or Python backend.
 
-The website has two views: **Explore Fire Records** and **Test A Prediction**. The record opens with observed Terra counts, raw VIIRS counts and scaled VIIRS counts, followed by the calendar and map. Calibration details, monthly trends, methods and downloads expand on demand. The prediction view opens directly onto the map and area/week controls, followed by a short conclusion. Full benchmark results and weather/spectral research remain in separate expandable sections. The four city choices use complete county boundaries; each county retains its own coefficient and evaluation.
+The website has two views: **Fire Calendar** and **Compare Locations**. The calendar opens with observed Terra counts, raw VIIRS counts and scaled VIIRS counts, followed by the calendar and map. Methods, sources and downloads expand on demand. Compare Locations provides a rotatable 3D view of month, county and detection count, plus a 2D agreement plot and an error table. Switch between raw counts, count ratio calibration and spatial aggregation. The county-wide records retain their original data and independent coefficients.
 
 | City | County Coverage | Qualifying Observations | Adjusted MAE | Seasonal MAE | Held-Out Criterion |
 | --- | --- | ---: | ---: | ---: | --- |
@@ -42,41 +42,32 @@ Terra MODIS supplies the reference counts. The main calendar uses Terra through 
 
 The adjusted series passes the predefined aggregate criterion: lower MAE than both baselines on identical evaluation months. It does **not** improve on the seasonal baseline in every year: adjusted MAE is 2.364167 versus 1.166667 in 2022, and 2.009013 versus 1.500000 in 2023. Annual and processing-period comparisons remain visible in the dashboard.
 
-## Location and time predictions
+## Spatial Harmonization Comparison
 
-The research matrix compares the evidence needed for weather-only, weather-plus-harmonized-history, and weather-plus-history-plus-hyperspectral prediction. The Santa Clarita evidence study uses an editable June 2024 cutoff. Its measurements remain separate from the satellite-only location/week evaluation.
+The spatial experiment groups VIIRS points into acquisition groups, counts occupied nominal 1 km grid cells, averages four fixed grid origins, and calibrates monthly occupancy to Terra. It also compares zero-intercept absolute-error fits against the total-ratio fit. This changes the spatial-density feature; it does not recreate MODIS pixels or synchronize satellite overpasses.
 
-- Hotspot context filters actual acquisitions before an editable UTC cutoff, keeping sensor counts separate. Applying the county calibration within the smaller study envelope is exploratory and has not been independently validated.
-- The saved NWS forecast and Saugus observation are dated November 15, 2026. They are excluded from the 2024 comparison. Missing observation temperature and humidity remain unavailable.
-- NASA EMIT Version 001 reflectance and quality masks from April 23, 2024 yield Gao NDWI using the 857.594 and 1238.060 nm bands. Only 1,368 of 679,173 sampled native pixels in the study envelope pass screening (0.20%); their median index is −0.0369. These are pixel statistics, not area-weighted estimates or a vegetation classification. Sparse support cannot establish regional fuel condition or prediction improvement.
-- The same scene also supplies NDVI, MSI, PSRI and PRI. Screening retains 1,368 pixels for NDWI, NDVI, MSI and PRI, and 1,337 for PSRI. These are correlated features from one sensor, not five independent modalities. Formulas, sources, actual band centers, band widths and quality counts are retained in the downloadable summary. Nearest-band guards of 10 nm for NDWI and 5 nm for the other indices are engineering tolerances, not independently validated physical equivalence.
-- Measured spectral input is displayed only after both acquisition and source-product creation timestamps precede the cutoff. These timestamps do not establish when the product was publicly available or operationally usable. The April scene is about 54 days old at the default June cutoff.
+| County | Count Ratio MAE | Spatial Ratio MAE | Difference |
+| --- | ---: | ---: | ---: |
+| Los Angeles | 4.924891 | 7.576510 | Higher error |
+| San Diego | 2.064945 | 1.993049 | Lower error |
+| Santa Clara | 0.999082 | 4.216862 | Higher error |
+| Sacramento | 1.619257 | 1.618393 | Lower error |
 
+All rows use the same 72 months in 2020-2025. **No new candidate qualifies to replace the original ratio in any county.** Selection uses only forward validation within 2013-2019 and requires more than 5% lower pooled MAE with no more than 10% higher top-five peak-month MAE. Small later-period gains cannot override that rule. These archive years had already been inspected; this is an exploratory comparison, not independent confirmation.
 
-The prediction exercise asks visitors to choose one county-clipped 0.2-degree area and one UTC week within a 28-day window, then lock that choice and reveal actual qualifying Suomi-NPP detections. Each model has the same one-area/one-week budget. Location-only and week-only matches are diagnostic; both must match for a hit. Revealed cases are labeled as practice when revisited. This static site bundles outcomes and is not a blinded experiment.
+The [protocol](analysis/spatial_harmonization_protocol.json) fixes the spherical equal-area grid, four origins, 20-minute adjacent acquisition-gap rule, candidate list and selection thresholds. The [complete result](web/data/harmonization-study.json) includes every candidate, source hashes, coefficients, validation folds, monthly values, yearly metrics, bias and peak errors. Raw observations are preserved.
 
-The [fixed protocol](analysis/prediction_protocol.json) evaluates all 26 complete, non-overlapping windows from January 2024 through December 28, 2025 in each of four counties (104 windows total). Quiet windows remain in the denominator; the final three days are excluded. Seasonal rates use only 2013-2019. Recent counts use the preceding 28 days with a two-day acquisition embargo. Reprocessed archives do not establish operational publication times. The rule weights and grid were fixed before computing this exploratory comparison; these archive years had already been inspected for the calendar.
-
-| County Record | Seasonal | Recent VIIRS | History + Recent VIIRS | History + MODIS / VIIRS |
-| --- | ---: | ---: | ---: | ---: |
-| Los Angeles | 3/26 | 10/26 | 5/26 | 3/26 |
-| San Diego | 0/26 | 6/26 | 5/26 | 5/26 |
-| San Jose / Santa Clara | 1/26 | 3/26 | 3/26 | 3/26 |
-| Sacramento | 6/26 | 6/26 | 7/26 | 8/26 |
-
-These are exact location-and-week matches, not ignition forecasts or firefighting outcomes. The combined rule provides no consistent advantage. Recent VIIRS alone has 25 matches across 104 windows; the combined rule has 19. Adding Terra to the history-plus-recent rule increases matches in Sacramento, leaves two counties unchanged, and reduces Los Angeles matches. No uncertainty or significance claim is made.
-
-Seasonal scores sum 2013-2019 cell/month detection rates over each candidate future week. Recent VIIRS scores use input-window counts and cannot distinguish the four future weeks; ties select the earliest. The two combined rules equally weight separately normalized seasonal and recent scores. The multisensor recent term is Terra + alpha times SNPP, using the county calibration. It is a ranking score, not a physical count; sensor overlap can be double counted. Aqua is not used in this rule. County-clipped cells have unequal areas, and the score does not adjust for this. Missing detections do not establish absence of fire.
-
-Weather and EMIT are excluded from these rules: the November 2026 weather snapshot is later than the outcomes, and a single sparsely usable EMIT scene cannot support an aligned county-wide spectral comparison. The downloadable [prediction record](web/data/prediction.json) contains every case, selection, observation, metric, source hash and protocol. Reproduce it with:
-
-```bash
-python -B analysis/build_prediction.py
+```sh
+python -B -m analysis.build_spatial_harmonization --output web/data/harmonization-study.json
+python -B -m analysis.harmonization_figures --output-dir web/figures
+python -B -m unittest tests.test_spatial_harmonization
 ```
 
-The repository retains standalone allocation calculations and explicitly simulated fixtures in [training-scenario.json](web/data/training-scenario.json). They are separate research examples and are not part of the published website.
+VIIRS has finer spatial sampling and greater response to small fires than MODIS. Spatially combining positive detections cannot reproduce the original radiance-based classification, recover cloud masks, or establish observation opportunities. See the [NASA VIIRS product description](https://firms.modaps.eosdis.nasa.gov/content/descriptions/FIRMS_VIIRS_Firehotspots.html) and [Schroeder et al. (2014)](https://doi.org/10.1016/j.rse.2013.12.008). Agreement with Terra is sensor-count agreement, not the true number of fires, burned area or forecasting accuracy.
 
-The location/week ranking rules above are evaluated against observed hotspots; no independent ignition model or operational placement recommendation is provided. Claims about ignition prediction require independent incident outcomes, historical as-issued forecasts and matched held-out episodes. The separate incomplete [scenario template](web/data/decision-scenario-template.json) deliberately cannot produce a research ranking. Weather and EMIT evidence remain Santa Clarita-specific; switching county calendars does not relocate those measurements.
+![Four-county Terra and calibrated VIIRS comparison, 2020–2025](web/figures/harmonization_ratio_3d.png)
+
+Figure downloads follow the selected method and view. The 3D exports use a fixed camera and a 7.16 × 5.37 in canvas; 2D agreement plots use 7.16 × 3.58 in. Each figure has a 600 dpi PNG and a vector SVG, with Arial Regular and no embedded raster layers in the SVG.
 
 ## Interpret the record carefully
 
@@ -100,7 +91,7 @@ Open the local address printed by the server. The build output is `dist/`.
 
 For Cloudflare Pages, connect this GitHub repository, select the `main` branch, set the build command to `npm run build`, and set the output directory to `dist`. Set `NODE_VERSION=22` and `SKIP_DEPENDENCY_INSTALL=true` in the build environment; the static build requires no dependency installation. The project uses [flarefront.pages.dev](https://flarefront.pages.dev); local changes appear there only after a successful GitHub-triggered deployment.
 
-Static asset requests are [free and unlimited](https://developers.cloudflare.com/pages/functions/pricing/); the Free plan allows [500 builds per month](https://developers.cloudflare.com/pages/platform/limits/). This application has no Pages Functions. Scientific data and weather snapshots are bundled. The geographic background loads visible map tiles from OpenStreetMap, a separate best-effort service governed by its [tile usage policy](https://operations.osmfoundation.org/policies/tiles/). If tiles fail, the county outline and hotspot data remain available. No offline tile download or prefetch is provided.
+Static asset requests are [free and unlimited](https://developers.cloudflare.com/pages/functions/pricing/); the Free plan allows [500 builds per month](https://developers.cloudflare.com/pages/platform/limits/). This application has no Pages Functions. Scientific data are bundled. The geographic background loads visible map tiles from OpenStreetMap, a separate best-effort service governed by its [tile usage policy](https://operations.osmfoundation.org/policies/tiles/). If tiles fail, the county outline and hotspot data remain available. No offline tile download or prefetch is provided.
 
 ## Reproduce the analysis
 
@@ -127,7 +118,7 @@ python analysis/build_regions.py --source-dir PATH_TO_ARCHIVES --boundary-root w
 npm run build
 ```
 
-The registry in [analysis/regions.json](analysis/regions.json) maps cities to counties and generates the runtime selector. A zero training total leaves calibration unestimable and adjusted values unavailable; raw sensor counts remain accessible. The original reference PNG/SVG files below are Los Angeles examples; interactive figure and CSV exports use the selected county.
+The registry in [analysis/regions.json](analysis/regions.json) maps cities to counties and generates the runtime selector. A zero training total leaves calibration unestimable and adjusted values unavailable; raw sensor counts remain accessible. The original reference PNG/SVG files are Los Angeles examples; interactive figure and CSV exports use the selected county.
 
 ### Calibration Benchmarks
 
@@ -150,28 +141,13 @@ npm test
 
 Set `FLAREFRONT_INPUT_DIR` to the staging directory for the real-data acceptance case outside the original workspace. Reference figures are exported as matching 600 dpi PNG and vector SVG files; Arial Regular is required.
 
-The decision-input builder reads saved public API responses without network access:
-
-```sh
-python analysis/build_decision_inputs.py --source-dir PATH_TO_SNAPSHOTS --output web/data/decision-inputs.json --retrieved-at UTC_RETRIEVAL_TIMESTAMP
-python -m unittest discover -s tests -p "test_*.py"
-```
-
-The snapshot directory contains `nws-point.json`, `nws-forecast.json`, `nws-stations.json`, `nws-observation.json` and `emit-granules.json`. The retrieval time must be a timezone-aware ISO timestamp; it is distinct from observation, forecast issue and scene acquisition times. Source URLs and those scientific timestamps are retained in [decision-inputs.json](web/data/decision-inputs.json). Absent files produce explicit unavailable layers; malformed values fail the build.
-
-Process matching EMIT Version 001 reflectance and quality-mask NetCDF files downloaded through NASA Earthdata:
-
-```sh
-python analysis/build_emit_index.py --reflectance PATH_TO_REFLECTANCE.nc --mask PATH_TO_MASK.nc --bbox -118.8 34.2 -118.2 34.7 --output web/data/emit-ndwi.json
-```
-
-The builder checks scene identity, geolocation, units and wavelength quality. It excludes aggregate-masked pixels, interpolation flags in any band needed by an index, invalid reflectance and nonpositive denominators. Screening and summary statistics are computed separately for all five indices. The summary retains source filenames, SHA256 hashes, product times, band centers, screening counts and native-pixel statistics. Raw NetCDF files remain external to the repository and website. No vegetation classification, incident model or area-weighted inference is performed.
+Earlier prediction, allocation and weather/spectral experiments remain in the repository with their source data and tests. They are excluded from the website build. Their outputs do not establish improved forecasting or firefighting outcomes.
 
 ## Sources and license
 
 [NASA FIRMS](https://firms.modaps.eosdis.nasa.gov/country/) supplies the MODIS and Suomi-NPP observations. The county geometry comes from [U.S. Census TIGERweb](https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer), using the same 2026 boundary for every year.
 
-Weather comes from the [National Weather Service API](https://www.weather.gov/documentation/services-web-api). Hyperspectral metadata, reflectance and quality masks come from NASA [EMIT L2A Reflectance V001](https://doi.org/10.5067/EMIT/EMITL2ARFL.001). [Gao's NDWI](https://doi.org/10.1016/S0034-4257(96)00067-3) is not a calibrated fuel-moisture or ignition-probability estimate. Background map data is © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright).
+Background map data is © [OpenStreetMap contributors](https://www.openstreetmap.org/copyright). Separate archived research inputs retain their original NWS and NASA EMIT provenance in their data files.
 
 Original application and analysis code is licensed under [Apache-2.0](LICENSE). See [NOTICE](NOTICE) and [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES) for attribution and third-party terms.
 
