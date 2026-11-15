@@ -1,0 +1,28 @@
+FlareFront source and data acknowledgments
+
+NASA FIRMS
+MODIS and Suomi-NPP VIIRS active-fire data were obtained through NASA FIRMS
+annual country files. NASA FIRMS is part of NASA Earth Science Data and
+Information System (ESDIS). Original acquisition fields and source archive
+member provenance are retained. Data access: https://firms.modaps.eosdis.nasa.gov/
+These detections do not imply NASA endorsement of this project.
+
+U.S. Census Bureau
+Los Angeles County geometry (GEOID 06037), TIGERweb State_County service,
+January 1, 2026 vintage; coordinates in WGS84 longitude/latitude.
+https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/1
+
+Plotly.js 3.1.0
+Copyright 2012-2025 Plotly, Inc. MIT License.
+The complete license is preserved in web/vendor/PLOTLY-LICENSE
+(vendor/PLOTLY-LICENSE in the static distribution).
+Source: https://github.com/plotly/plotly.js/tree/v3.1.0
+
+Leaflet 1.9.4
+BSD 2-Clause License. Copyright Vladimir Agafonkin and CloudMade.
+The complete license is preserved in web/vendor/LEAFLET-LICENSE
+(vendor/LEAFLET-LICENSE in the static distribution).
+Source: https://github.com/Leaflet/Leaflet/tree/v1.9.4
+
+Development tools
+AI assisted code editor was used for code development

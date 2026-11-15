@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "county_geoid": "06037",
+  "county_name": "Los Angeles County",
+  "start_date": "2001-01-01",
+  "end_date": "2025-12-31",
+  "snpp_start_date": "2012-01-20",
+  "aqua_start_month": "2002-07",
+  "aqua_start_day_verified": false,
+  "known_source_gaps": [],
+  "fit_start_year": 2013,
+  "fit_end_year": 2019,
+  "test_start_year": 2020,
+  "test_end_year": 2025,
+  "validation_groups": [[2020, 2022], [2023, 2025]],
+  "switch_year": 2013,
+  "reference_sensor": "terra",
+  "modis_min_confidence": 30,
+  "viirs_confidence": ["n", "h"],
+  "hotspot_type": 0,
+  "timezone": "UTC",
+  "units": "Terra-equivalent hotspot detections"
+}
