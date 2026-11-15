@@ -8,7 +8,8 @@ member provenance are retained. Data access: https://firms.modaps.eosdis.nasa.go
 These detections do not imply NASA endorsement of this project.
 
 U.S. Census Bureau
-Los Angeles County geometry (GEOID 06037), TIGERweb State_County service,
+Los Angeles (06037), San Diego (06073), Santa Clara (06085) and Sacramento
+(06067) county geometry, TIGERweb State_County service,
 January 1, 2026 vintage; coordinates in WGS84 longitude/latitude.
 https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/1
 
@@ -24,5 +25,24 @@ The complete license is preserved in web/vendor/LEAFLET-LICENSE
 (vendor/LEAFLET-LICENSE in the static distribution).
 Source: https://github.com/Leaflet/Leaflet/tree/v1.9.4
 
+NOAA National Weather Service
+Public hourly forecast and station observation snapshots from api.weather.gov.
+Issue, validity and observation timestamps are preserved; snapshots do not
+constitute an automatically refreshing forecast service.
+https://www.weather.gov/documentation/services-web-api
+
+NASA EMIT
+EMIT L2A surface reflectance, Version 001, and companion quality masks;
+catalog metadata via NASA CMR and scientific files via NASA Earthdata.
+Screened NDWI, NDVI, MSI, PSRI and PRI summaries for the April 23, 2024 scene preserve source filenames,
+SHA256 hashes, acquisition and product creation times in data/emit-ndwi.json.
+https://doi.org/10.5067/EMIT/EMITL2ARFL.001
+
+OpenStreetMap
+Background map data © OpenStreetMap contributors, available under the
+Open Database License. Visible map tiles are loaded from tile.openstreetmap.org.
+https://www.openstreetmap.org/copyright
+https://operations.osmfoundation.org/policies/tiles/
+
 Development tools
-AI assisted code editor was used for code development
+AI assisted code editor was used for development of this website

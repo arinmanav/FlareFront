@@ -125,8 +125,8 @@ def load_county(path, geoid):
     if feature.get("properties", {}).get("GEOID") != geoid:
         raise ValueError("County boundary GEOID does not match configuration")
     county = shape(feature["geometry"])
-    if county.geom_type != "MultiPolygon" or county.is_empty or not county.is_valid:
-        raise ValueError("County boundary must be a valid nonempty MultiPolygon")
+    if county.geom_type not in ("Polygon", "MultiPolygon") or county.is_empty or not county.is_valid:
+        raise ValueError("County boundary must be a valid nonempty Polygon or MultiPolygon")
     return geojson, county
 
 
@@ -235,7 +235,7 @@ def aggregate_monthly(daily, records, config):
     return months
 
 
-def calibrate(months, config):
+def calibrate(months, config, allow_unestimable=False):
     """Fit the declared ratio on training counts, then evaluate untouched months."""
     for start, end in ((config["fit_start_year"], config["fit_end_year"]),
                        (config["test_start_year"], config["test_end_year"])):
@@ -249,6 +249,18 @@ def calibrate(months, config):
     terra_total = sum(row["terra"] for row in training)
     snpp_total = sum(row["snpp"] for row in training)
     if terra_total <= 0 or snpp_total <= 0:
+        if allow_unestimable:
+            testing = [row for row in months if config["test_start_year"] <= row["year"] <= config["test_end_year"]]
+            eligible = [row for row in testing if row["terra"] is not None and row["snpp"] is not None]
+            return {"passed": False, "status": "unestimable", "reason": "Training totals must both be positive",
+                "alpha": None,
+                "training": {"start_year": config["fit_start_year"], "end_year": config["fit_end_year"],
+                             "terra_total": terra_total, "snpp_total": snpp_total, "months": len(training)},
+                "test": {"start_year": config["test_start_year"], "end_year": config["test_end_year"],
+                         "months": len(eligible), "excluded_months": [{"year": row["year"], "month": row["month"],
+                         "reason": "proven_source_unavailability"} for row in testing if row not in eligible]},
+                "mae": {"adjusted": None, "unscaled": None, "seasonal": None},
+                "by_year": [], "version_groups": [], "seasonal_training_medians": {}}
         raise ValueError("Training totals must both be positive")
     alpha = terra_total / snpp_total
     seasonal = {month: median(row["terra"] for row in training if row["month"] == month)
@@ -286,7 +298,7 @@ def apply_main_series(daily, months, alpha, config):
         source = "terra" if year < config["switch_year"] else "snpp"
         row["source"] = source
         value = row[source]
-        row["main"] = None if value is None else value if source == "terra" else alpha * value
+        row["main"] = None if value is None or source == "snpp" and alpha is None else value if source == "terra" else alpha * value
     for row in months:
         peers = [other["main"] for other in months if other["month"] == row["month"]
                  and other["year"] != row["year"] and other["main"] is not None]
@@ -336,10 +348,10 @@ def write_json(path, value):
         handle.write("\n")
 
 
-def write_csv(path, rows):
-    if not rows:
+def write_csv(path, rows, fieldnames=None):
+    if not rows and not fieldnames:
         raise ValueError(f"No rows to write: {path.name}")
-    fields = list(dict.fromkeys(field for row in rows for field in row))
+    fields = list(dict.fromkeys(field for row in rows for field in row)) if rows else fieldnames
     with path.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fields)
         writer.writeheader()
@@ -348,15 +360,15 @@ def write_csv(path, rows):
                              if isinstance(value, (dict, list)) else value for key, value in row.items()})
 
 
-def build(input_dir, output_dir, config=None):
+def build(input_dir, output_dir, config=None, boundary_path=None, allow_unestimable=False):
     config = load_config() if config is None else config
     input_dir, output_dir = Path(input_dir), Path(output_dir)
-    geojson, county = load_county(input_dir / "los_angeles_county_2026.geojson", config["county_geoid"])
+    geojson, county = load_county(boundary_path or input_dir / "los_angeles_county_2026.geojson", config["county_geoid"])
     raw, inventories = read_inputs(input_dir, config)
     records, quality = qualify_records(raw, county, config)
     daily = aggregate_daily(records, config)
     months = aggregate_monthly(daily, records, config)
-    validation = calibrate(months, config)
+    validation = calibrate(months, config, allow_unestimable=allow_unestimable)
     apply_main_series(daily, months, validation["alpha"], config)
     version_counts = defaultdict(Counter)
     for record in records:
@@ -374,7 +386,10 @@ def build(input_dir, output_dir, config=None):
         "No additional source gaps are inferred from zero rows. Observation coverage remains unknown unless independently documented.",
         "The single-factor pilot does not model seasonal or diurnal sensitivity, clouds, observation opportunity, or processing changes.",
         "Same-month historical medians use all other available years and are retrospective comparisons, not decision-time forecasts."]
-    if not validation["passed"]:
+    if validation["alpha"] is None:
+        limitations[2] = "Terra counts are used through 2012. Positive training totals are unavailable, so no harmonized estimates are supplied from 2013; raw sensor counts remain available."
+        limitations.append("Calibration is unestimable because both training totals must be positive; no county coefficient is borrowed from another region.")
+    elif not validation["passed"]:
         limitations.append("Calibration failed the strict held-out improvement criterion; the adjusted series remains experimental and the validated milestone is incomplete.")
     dashboard = {"meta": {"title": "FlareFront", "county": config["county_name"],
         "geoid": config["county_geoid"], "start_date": config["start_date"], "end_date": config["end_date"],
@@ -396,7 +411,10 @@ def build(input_dir, output_dir, config=None):
     write_json(output_dir / "points.json", {"meta": {"software_development": SOFTWARE_DEVELOPMENT},
                                            "columns": POINT_COLUMNS, "rows": point_rows})
     write_json(output_dir / "county.geojson", geojson)
-    write_csv(output_dir / "hotspots.csv", records)
+    empty_point_fields = [*POINT_COLUMNS, *sorted(REQUIRED_COLUMNS - set(POINT_COLUMNS)),
+                          "normalized_sensor", "acquisition_datetime_utc", "normalized_confidence",
+                          "normalized_type", "normalized_frp", "qualification_reason"]
+    write_csv(output_dir / "hotspots.csv", records, fieldnames=empty_point_fields)
     write_csv(output_dir / "calendar.csv", months)
     return dashboard
 
@@ -405,8 +423,11 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, default=Path("web/data"))
+    parser.add_argument("--config", type=Path, default=CONFIG_PATH)
+    parser.add_argument("--boundary", type=Path)
+    parser.add_argument("--allow-unestimable", action="store_true")
     args = parser.parse_args()
-    dashboard = build(args.input_dir, args.output_dir)
+    dashboard = build(args.input_dir, args.output_dir, load_config(args.config), args.boundary, args.allow_unestimable)
     print(json.dumps({"months": len(dashboard["months"]), "quality": dashboard["quality"],
                       "validation": dashboard["validation"]}, allow_nan=False, indent=2))
 

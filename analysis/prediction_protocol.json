@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "target": "At least one qualifying Suomi-NPP hotspot detection in one county-clipped grid cell during one UTC week",
+  "grid_degrees": 0.2,
+  "training_start": "2013-01-01",
+  "training_end_exclusive": "2020-01-01",
+  "evaluation_start": "2024-01-01",
+  "evaluation_end_exclusive": "2026-01-01",
+  "horizon_days": 28,
+  "week_days": 7,
+  "lookback_days": 28,
+  "embargo_days": 2,
+  "selection_budget": 1,
+  "methods": ["seasonal", "recent", "history_recent", "multisensor"],
+  "history_weight": 0.5,
+  "tie_break": "Earliest week, then numeric latitude and longitude grid indices",
+  "evaluation_kind": "Exploratory retrospective comparison; these archive years have previously been inspected",
+  "limitations": [
+    "The target is observed hotspot activity, not independent ignitions, burned area or a firefighting outcome.",
+    "No detection is not proof of no fire: cloud and observation-opportunity masks are unavailable.",
+    "Inputs use reprocessed archives with a two-day acquisition embargo; actual operational publication times are not established.",
+    "Non-overlapping 28-day windows include quiet periods. The final incomplete window is excluded.",
+    "Equal weights and grid size are fixed without tuning against this comparison; no statistical superiority or generalization claim is made.",
+    "Weather forecasts and EMIT indices are excluded from these rankings because matched historical coverage is unavailable.",
+    "County-clipped 0.2-degree cells differ in area. All methods and the visitor use the same cells and one cell-week budget.",
+    "Outcomes are bundled in this static educational site. Locking a guess is an interaction convention, not a blind scientific trial."
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "description": "Incomplete research input template. Supply verified station eligibility, external expected-incident predictions and road-travel times. Null values intentionally prevent ranking. This template contains no observed outcome or fitted prediction model.",
+  "decisionAt": "2024-06-17T00:00:00Z",
+  "predictionEnd": "2024-06-20T00:00:00Z",
+  "forecastIssuedAt": null,
+  "forecastValidStart": null,
+  "forecastValidEnd": null,
+  "trainingEnd": null,
+  "modelId": null,
+  "stations": [{ "id": "station-150", "label": "Station 150", "eligible": false, "verified": false }],
+  "fixedStationId": "station-150",
+  "baselineStationId": "station-150",
+  "cells": [],
+  "travelMinutes": {},
+  "thresholdMinutes": null
+}

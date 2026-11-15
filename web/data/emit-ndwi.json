@@ -1,0 +1,269 @@
+{
+  "schema_version": 1,
+  "status": "measured",
+  "scene_id": "EMIT_L2A_RFL_001_20240423T183357_2411412_006",
+  "title": "EMIT L2A Estimated Surface Reflectance 60 m V001",
+  "acquired_at": "2024-04-23T18:33:57Z",
+  "processed_at": "2026-11-15T17:38:03.800942Z",
+  "bbox": [
+    -118.8,
+    34.2,
+    -118.2,
+    34.7
+  ],
+  "bands": [
+    {
+      "target_nm": 860,
+      "index": 64,
+      "wavelength_nm": 857.5936889648438,
+      "fwhm_nm": 8.50100040435791
+    },
+    {
+      "target_nm": 1240,
+      "index": 115,
+      "wavelength_nm": 1238.0595703125,
+      "fwhm_nm": 8.571999549865723
+    }
+  ],
+  "quality": {
+    "native_pixels": 1589760,
+    "in_bbox": 679173,
+    "aggregate_masked": 677805,
+    "interpolated": 0,
+    "invalid_reflectance": 0,
+    "valid_pixels": 1368
+  },
+  "statistics": {
+    "min": -0.09421019489870809,
+    "p25": -0.051144219932180116,
+    "median": -0.03691137815708356,
+    "p75": -0.017388840217582104,
+    "max": 0.055020934838084845,
+    "mean": -0.03263638191206536
+  },
+  "input_files": [
+    {
+      "name": "EMIT_L2A_RFL_001_20240423T183357_2411412_006.nc",
+      "sha256": "c433755ab54d82e2310fed508be3900770baea80439a71914f72f314a9d12ab0",
+      "bytes": 1851154304,
+      "created_at": "2024-04-25T23:41:02Z"
+    },
+    {
+      "name": "EMIT_L2A_MASK_001_20240423T183357_2411412_006.nc",
+      "sha256": "b5369886e1d2d25928951afdf89d75f1ddc993718a27445723ff69abb71a00fa",
+      "bytes": 46409693,
+      "created_at": "2024-04-25T23:41:46Z"
+    }
+  ],
+  "mask_policy": "Native pixels inside inclusive bbox; Aggregate Flag finite and zero; both target-band MSB-first interpolation bits unset and neither selected packed byte equals its declared fill; reflectance finite, nonnegative and not declared fill; denominator positive. Sequential exclusions; native-pixel statistics are not area-weighted. No GLT resampling or upper clipping.",
+  "units": "dimensionless",
+  "interpretation": "Nonwater surface spectral NDWI; not vegetation, measured fuel moisture, or fire probability.",
+  "indices": [
+    {
+      "id": "ndwi",
+      "name": "Gao NDWI",
+      "formula": "(R860 - R1240) / (R860 + R1240)",
+      "source_url": "https://doi.org/10.1016/S0034-4257(96)00067-3",
+      "wavelength_tolerance_nm": 10,
+      "interpretation": "Nonwater surface water-sensitive spectral contrast; not measured vegetation water or fuel moisture.",
+      "approximation": "Nearest EMIT band centers approximate nominal formula wavelengths. Tolerance is an engineering guard, not universal physical validation. All indices share one reflectance scene and are not independent modalities.",
+      "status": "measured",
+      "bands": [
+        {
+          "target_nm": 860,
+          "index": 64,
+          "wavelength_nm": 857.5936889648438,
+          "fwhm_nm": 8.50100040435791
+        },
+        {
+          "target_nm": 1240,
+          "index": 115,
+          "wavelength_nm": 1238.0595703125,
+          "fwhm_nm": 8.571999549865723
+        }
+      ],
+      "quality": {
+        "native_pixels": 1589760,
+        "in_bbox": 679173,
+        "aggregate_masked": 677805,
+        "interpolated": 0,
+        "invalid_reflectance": 0,
+        "valid_pixels": 1368
+      },
+      "statistics": {
+        "min": -0.09421019489870809,
+        "p25": -0.051144219932180116,
+        "median": -0.03691137815708356,
+        "p75": -0.017388840217582104,
+        "max": 0.055020934838084845,
+        "mean": -0.03263638191206536
+      }
+    },
+    {
+      "id": "ndvi",
+      "name": "NDVI",
+      "formula": "(R860 - R660) / (R860 + R660)",
+      "source_url": "https://doi.org/10.1016/S0034-4257(96)00067-3",
+      "wavelength_tolerance_nm": 5,
+      "interpretation": "Red-near-infrared spectral contrast; no independent vegetation classification is supplied.",
+      "approximation": "Nearest EMIT band centers approximate nominal formula wavelengths. Tolerance is an engineering guard, not universal physical validation. All indices share one reflectance scene and are not independent modalities.",
+      "status": "measured",
+      "bands": [
+        {
+          "target_nm": 860,
+          "index": 64,
+          "wavelength_nm": 857.5936889648438,
+          "fwhm_nm": 8.50100040435791
+        },
+        {
+          "target_nm": 660,
+          "index": 38,
+          "wavelength_nm": 663.64111328125,
+          "fwhm_nm": 8.46399974822998
+        }
+      ],
+      "quality": {
+        "native_pixels": 1589760,
+        "in_bbox": 679173,
+        "aggregate_masked": 677805,
+        "interpolated": 0,
+        "invalid_reflectance": 0,
+        "valid_pixels": 1368
+      },
+      "statistics": {
+        "min": 0.2365378335917496,
+        "p25": 0.39800542564558383,
+        "median": 0.4571211913927371,
+        "p75": 0.5318661447496249,
+        "max": 0.7633356288247836,
+        "mean": 0.469910238965201
+      }
+    },
+    {
+      "id": "msi",
+      "name": "Moisture Stress Index",
+      "formula": "R1600 / R820",
+      "source_url": "https://doi.org/10.1016/0034-4257(89)90046-1",
+      "wavelength_tolerance_nm": 5,
+      "interpretation": "Water-sensitive reflectance ratio; not a measured stress level or calibrated fuel-moisture estimate.",
+      "approximation": "Nearest EMIT band centers approximate nominal formula wavelengths. Tolerance is an engineering guard, not universal physical validation. All indices share one reflectance scene and are not independent modalities.",
+      "status": "measured",
+      "bands": [
+        {
+          "target_nm": 1600,
+          "index": 164,
+          "wavelength_nm": 1603.088623046875,
+          "fwhm_nm": 8.640999794006348
+        },
+        {
+          "target_nm": 820,
+          "index": 59,
+          "wavelength_nm": 820.2846069335938,
+          "fwhm_nm": 8.494000434875488
+        }
+      ],
+      "quality": {
+        "native_pixels": 1589760,
+        "in_bbox": 679173,
+        "aggregate_masked": 677805,
+        "interpolated": 0,
+        "invalid_reflectance": 0,
+        "valid_pixels": 1368
+      },
+      "statistics": {
+        "min": 0.4529843232803843,
+        "p25": 0.7605086519882721,
+        "median": 0.8541222904175574,
+        "p75": 0.935050653422147,
+        "max": 1.1963728984764068,
+        "mean": 0.8390730393639517
+      }
+    },
+    {
+      "id": "psri",
+      "name": "Plant Senescence Reflectance Index",
+      "formula": "(R678 - R500) / R750",
+      "source_url": "https://onlinelibrary.wiley.com/doi/10.1034/j.1399-3054.1999.106119.x",
+      "wavelength_tolerance_nm": 5,
+      "interpretation": "Pigment-sensitive reflectance contrast; no independently verified vegetation senescence is established.",
+      "approximation": "Nearest EMIT band centers approximate nominal formula wavelengths. Tolerance is an engineering guard, not universal physical validation. All indices share one reflectance scene and are not independent modalities.",
+      "status": "measured",
+      "bands": [
+        {
+          "target_nm": 678,
+          "index": 40,
+          "wavelength_nm": 678.5538940429688,
+          "fwhm_nm": 8.467000007629395
+        },
+        {
+          "target_nm": 500,
+          "index": 16,
+          "wavelength_nm": 499.77142333984375,
+          "fwhm_nm": 8.432999610900879
+        },
+        {
+          "target_nm": 750,
+          "index": 50,
+          "wavelength_nm": 753.1359252929688,
+          "fwhm_nm": 8.480999946594238
+        }
+      ],
+      "quality": {
+        "native_pixels": 1589760,
+        "in_bbox": 679173,
+        "aggregate_masked": 677805,
+        "interpolated": 31,
+        "invalid_reflectance": 0,
+        "valid_pixels": 1337
+      },
+      "statistics": {
+        "min": -0.05208128898732329,
+        "p25": 0.045629705223576254,
+        "median": 0.07393145419350979,
+        "p75": 0.09677673213871169,
+        "max": 0.20139610599221655,
+        "mean": 0.06886781676483761
+      }
+    },
+    {
+      "id": "pri",
+      "name": "Photochemical Reflectance Index",
+      "formula": "(R531 - R570) / (R531 + R570)",
+      "source_url": "https://nph.onlinelibrary.wiley.com/doi/10.1111/j.1469-8137.1995.tb03064.x",
+      "wavelength_tolerance_nm": 5,
+      "interpretation": "Visible-band reflectance contrast; not a validated physiological condition or fire-probability estimate.",
+      "approximation": "Nearest EMIT band centers approximate nominal formula wavelengths. Tolerance is an engineering guard, not universal physical validation. All indices share one reflectance scene and are not independent modalities.",
+      "status": "measured",
+      "bands": [
+        {
+          "target_nm": 531,
+          "index": 20,
+          "wavelength_nm": 529.5333251953125,
+          "fwhm_nm": 8.439000129699707
+        },
+        {
+          "target_nm": 570,
+          "index": 25,
+          "wavelength_nm": 566.7615966796875,
+          "fwhm_nm": 8.446000099182129
+        }
+      ],
+      "quality": {
+        "native_pixels": 1589760,
+        "in_bbox": 679173,
+        "aggregate_masked": 677805,
+        "interpolated": 0,
+        "invalid_reflectance": 0,
+        "valid_pixels": 1368
+      },
+      "statistics": {
+        "min": -0.07835469068382477,
+        "p25": -0.046642903006670414,
+        "median": -0.040445050144037535,
+        "p75": -0.034113076847789026,
+        "max": 0.0030903546160651707,
+        "mean": -0.03996043567201141
+      }
+    }
+  ]
+}

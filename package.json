@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "license": "Apache-2.0",
-  "description": "Historical satellite hotspot calendar for Los Angeles County",
+  "description": "MODIS and VIIRS county calendars with retrospective location and time prediction",
   "type": "module",
   "scripts": {
     "build": "node scripts/build.mjs",

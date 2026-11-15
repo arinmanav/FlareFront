@@ -1,10 +1,16 @@
 import { MONTH_NAMES, SERIES_NAMES, monthKey, monthsInRange, seriesValue, sourceForMonth, pointsInRange, weeklyBins, historicalMedian, annualRawCounts, logColorPosition } from './calendar.js';
 import { downloadCsv, exportChart } from './exports.js';
+import { initializeDecisions } from './decisions-view.js';
+import { initializeHarmonization, renderHarmonizationExample } from './harmonization.js';
+import { validateRegions, regionFromSearch, validateRegionalDashboard, createRegionLoader } from './regions.js';
+import { initializeTraining } from './training.js';
+import { initializePrediction, selectPredictionRegion } from './prediction.js';
 
 const state = {
   series: 'main', start: '2001-01', end: '2025-12', selected: '2025-01',
   data: null, points: null, county: null, map: null, pointLayer: null,
-  mapError: null, heatmapBound: false,
+  mapError: null, heatmapBound: false, countyBounds: null, mapRows: [],
+  registry: null, region: null, loadGeneration: 0, decisionReady: null,
 };
 const $ = (id) => document.getElementById(id);
 const number = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 });
@@ -31,27 +37,10 @@ function chartLayout(overrides = {}) {
   };
 }
 
-async function fetchJson(path) {
-  const response = await fetch(path);
+async function fetchJson(path, options) {
+  const response = await fetch(path, options);
   if (!response.ok) throw new Error(`${path}: HTTP ${response.status}`);
   return response.json();
-}
-
-function validateDashboard(data) {
-  if (!data?.meta || !Array.isArray(data.months) || !Array.isArray(data.daily) || !data.validation || !data.quality) throw new Error('The dashboard data does not match the required schema.');
-  const keys = new Set();
-  for (const row of data.months) {
-    if (!Number.isInteger(row.year) || row.year < 2001 || row.year > 2025 || !Number.isInteger(row.month) || row.month < 1 || row.month > 12) throw new Error('The calendar contains an invalid year or month.');
-    const key = monthKey(row.year, row.month);
-    if (keys.has(key)) throw new Error(`The calendar repeats ${key}.`);
-    keys.add(key);
-    for (const source of ['main', 'terra', 'aqua', 'snpp']) {
-      if (row[source] !== null && (typeof row[source] !== 'number' || !Number.isFinite(row[source]) || row[source] < 0)) throw new Error(`Invalid ${source} count for ${key}.`);
-    }
-  }
-  if (keys.size !== 300 || !keys.has('2001-01') || !keys.has('2025-12')) throw new Error('The release must contain all 300 months from January 2001 through December 2025.');
-  if (!Number.isFinite(data.meta.alpha) || data.meta.alpha <= 0) throw new Error('A positive fitted calibration coefficient is required.');
-  return data;
 }
 
 function validatePoints(points) {
@@ -65,46 +54,142 @@ function validatePoints(points) {
   return points;
 }
 
-async function initialize() {
-  const results = await Promise.allSettled([fetchJson('data/dashboard.json'), fetchJson('data/points.json'), fetchJson('data/county.geojson')]);
+const loadRegionFiles = createRegionLoader(fetchJson);
+
+function countyName(region) {
+  return /County$/i.test(region.county) ? region.county : `${region.county} County`;
+}
+
+function calendarControls(disabled) {
+  document.querySelectorAll('#calendar-view button, #calendar-view input, #calendar-view select').forEach((control) => {
+    if (control.id !== 'region-select') control.disabled = disabled;
+  });
+}
+
+function showLoadStatus(message, error = false) {
+  const panel = $('load-status');
+  panel.hidden = false;
+  panel.classList.toggle('error', error);
+  panel.textContent = message;
+}
+
+async function selectRegion(region, updateUrl = false) {
+  const generation = ++state.loadGeneration;
+  state.region = region;
+  $('region-select').value = region.id;
+  if (updateUrl) {
+    const url = new URL(location.href); url.searchParams.set('region', region.id);
+    history.pushState(null, '', url);
+  }
+  text('county-heading', countyName(region));
+  text('header-period', `${region.city} · County-Wide Record · UTC`);
+  text('footer-region', `${countyName(region)} · Historical Hotspot Harmonization`);
+  $('dashboard').hidden = true;
+  calendarControls(true);
+  state.map?.remove(); state.map = null; state.pointLayer = null; state.countyBounds = null; state.mapRows = [];
+  state.data = null; state.points = null; state.county = null; state.mapError = null; state.heatmapBound = false;
+  $('county-map').replaceChildren();
+  text('map-tiles-status', 'Loading Geographic Context…');
+  $('map-tiles-status').classList.remove('error-message');
+  $('comparison-mode').onchange = null;
+  for (const id of ['heatmap', 'weekly-trend', 'sensor-comparison', 'harmonization-chart']) if (window.Plotly) Plotly.purge($(id));
+  text('action-status', '');
+  showLoadStatus(`Loading ${countyName(region)} observations and county geometry…`);
   try {
-    if (results[0].status === 'rejected') throw results[0].reason;
-    state.data = validateDashboard(results[0].value);
+    const files = await loadRegionFiles(region);
+    if (!files || generation !== state.loadGeneration) return;
+    const data = validateRegionalDashboard(files.data, region);
     if (!window.Plotly) throw new Error('The local Plotly chart asset could not be loaded.');
-    if (results[1].status === 'fulfilled') {
-      try { state.points = validatePoints(results[1].value); } catch (error) { state.mapError = error.message; }
-    } else state.mapError = results[1].reason.message;
-    if (results[2].status === 'fulfilled') state.county = results[2].value;
-    else state.mapError = [state.mapError, results[2].reason.message].filter(Boolean).join(' ');
-    if (!window.L) state.mapError = [state.mapError, 'The local Leaflet map asset could not be loaded.'].filter(Boolean).join(' ');
-    const months = [...state.data.months].sort((a, b) => monthKey(a.year, a.month).localeCompare(monthKey(b.year, b.month)));
-    state.start = monthKey(months[0].year, months[0].month);
-    state.end = monthKey(months.at(-1).year, months.at(-1).month);
-    state.selected = '2025-01';
-    bindControls();
+    state.data = data;
+    const mapErrors = [];
+    if (files.points) {
+      try { state.points = validatePoints(files.points); } catch (error) { mapErrors.push(`Point records unavailable: ${error.message}`); }
+    } else mapErrors.push(`Point records unavailable: ${files.errors.points ?? 'The point file is missing.'}`);
+    if (files.county?.type === 'FeatureCollection' && files.county.features?.length === 1 && files.county.features[0].properties?.GEOID === region.geoid) state.county = files.county;
+    else mapErrors.push(`County geometry unavailable: ${files.errors.county ?? 'The boundary file is missing or invalid.'}`);
+    if (!window.L) mapErrors.push('The local Leaflet map asset could not be loaded.');
+    state.mapError = mapErrors.join(' ') || null;
+    calendarControls(false);
+    $('start-month').value = state.start; $('end-month').value = state.end; $('series').value = state.series;
+    $('county-map').setAttribute('aria-label', `Observed Hotspots In ${countyName(region)}`);
     renderMethods();
     $('load-status').hidden = true;
     $('dashboard').hidden = false;
     setupMap();
-    await render();
+    await Promise.all([render(), initializeHarmonization(data)]);
+    if (generation !== state.loadGeneration) return;
+    selectPredictionRegion(region.id);
   } catch (error) {
-    const panel = $('load-status');
-    panel.hidden = false;
+    if (generation !== state.loadGeneration) return;
+    state.data = null; state.points = null; state.county = null;
     $('dashboard').hidden = true;
-    panel.classList.add('error');
-    panel.replaceChildren();
-    const content = document.createElement('div');
-    const heading = document.createElement('strong');
-    heading.textContent = 'The County Record Is Unavailable';
-    const detail = document.createElement('p');
-    console.error('Calendar initialization failed:', error);
-    detail.textContent = 'The calendar data could not be loaded. Reload the page; if the problem persists, try again later.';
-    content.append(heading, detail);
-    panel.append(content);
+    calendarControls(true);
+    showLoadStatus(`${countyName(region)} record unavailable. ${error.message} Select another city or reload to retry.`, true);
   }
 }
 
+async function initialize() {
+  bindControls();
+  calendarControls(true);
+  const trainingReady = initializeTraining(inspectTrainingEvidence);
+  const predictionReady = initializePrediction((id) => {
+    const region = state.registry?.regions.find((entry) => entry.id === id);
+    if (region && region.id !== state.region?.id) selectRegion(region, true);
+  });
+  const decisionEvidence = Promise.all([fetchJson('data/dashboard.json'), fetchJson('data/points.json')]);
+  state.decisionReady = decisionEvidence.then(([data, points]) => initializeDecisions(validateRegionalDashboard(data, { geoid: '06037' }), validatePoints(points))).catch(() => {
+    text('decision-load-status', 'The original Los Angeles County evidence is unavailable. Reload to retry.');
+    $('decision-content').hidden = true;
+  });
+  try {
+    state.registry = validateRegions(await fetchJson('data/regions.json'));
+    for (const region of state.registry.regions) {
+      const option = document.createElement('option'); option.value = region.id; option.textContent = region.city; $('region-select').append(option);
+    }
+    $('region-select').disabled = false;
+    $('region-select').addEventListener('change', () => {
+      const region = state.registry.regions.find((entry) => entry.id === $('region-select').value);
+      if (region) selectRegion(region, true);
+    });
+    window.addEventListener('popstate', () => {
+      const region = regionFromSearch(state.registry, location.search);
+      if (region.id !== state.region?.id) selectRegion(region);
+    });
+    await selectRegion(regionFromSearch(state.registry, location.search));
+  } catch (error) { calendarControls(true); showLoadStatus(`County records unavailable. ${error.message}`, true); }
+  await Promise.all([trainingReady, predictionReady]);
+  if (state.region) selectPredictionRegion(state.region.id);
+}
+
+async function inspectTrainingEvidence({ region, month, target }) {
+  if (region) {
+    const selected = state.registry?.regions.find((entry) => entry.id === region);
+    if (!selected) throw new Error('The training county record is unavailable.');
+    state.start = '2001-01'; state.end = '2025-12'; state.selected = month; state.series = 'main';
+    openView('calendar');
+    if (state.region?.id !== region || !state.data) await selectRegion(selected, true);
+    else {
+      $('start-month').value = state.start; $('end-month').value = state.end; $('series').value = state.series;
+      await render();
+    }
+    if (!state.data || state.region?.id !== region) throw new Error('The training county record could not be loaded.');
+    history.pushState(null, '', `?region=${region}#calendar`);
+  } else {
+    await state.decisionReady;
+    if ($('decision-content').hidden) throw new Error('The historical decision evidence is unavailable.');
+    $('decision-cutoff').value = '2024-06-17T00:00';
+    $('decision-lookback').value = '7';
+    $('decision-cutoff').dispatchEvent(new Event('change'));
+    history.pushState(null, '', '#decisions');
+    openView('decisions');
+  }
+  revealWorkflowTarget(target);
+}
+
 function bindControls() {
+  $('map-extent').addEventListener('click', () => {
+    if (state.map && state.countyBounds) state.map.fitBounds(state.countyBounds, { padding: [14, 14], animate: false });
+  });
   for (const id of ['start-month', 'end-month']) $(id).addEventListener('change', () => {
     const start = $('start-month').value;
     const end = $('end-month').value;
@@ -127,35 +212,39 @@ function bindControls() {
     render();
   });
   $('download-points').addEventListener('click', () => {
-    if (!state.points) return;
+    if (!state.data || !state.points) return;
     const rows = pointsInRange(state.points, state.start, state.end, state.series, state.data.meta.switch_year);
-    downloadCsv(`flarefront-observed-${state.series}-${state.start}-${state.end}.csv`, state.points.columns, rows);
+    downloadCsv(`flarefront-${state.region.id}-observed-${state.series}-${state.start}-${state.end}.csv`, state.points.columns, rows);
     text('action-status', `Downloaded ${number.format(rows.length)} observed point records for the current date range and source selection.`);
   });
   $('download-calendar').addEventListener('click', () => {
+    if (!state.data) return;
     const months = filteredMonths();
     const rows = months.map((row) => {
       const value = seriesValue(row, state.series);
       const baseline = state.series === 'main' ? { value: row.median, count: row.baseline_n } : historicalMedian(state.data.months, row, state.series);
       return [monthKey(row.year, row.month), state.series, value, sourceForMonth(state.series, row.year, state.data.meta.switch_year), units(), baseline.value, baseline.count, value === null || baseline.value === null ? null : value - baseline.value, row.terra, row.aqua, row.snpp, row.main];
     });
-    downloadCsv(`flarefront-calendar-${state.series}-${state.start}-${state.end}.csv`, ['month', 'selected_series', 'selected_value', 'selected_source', 'selected_units', 'historical_median', 'baseline_years', 'difference_from_median', 'terra_observed', 'aqua_observed', 'snpp_observed', 'main_terra_equivalent'], rows);
+    downloadCsv(`flarefront-${state.region.id}-calendar-${state.series}-${state.start}-${state.end}.csv`, ['month', 'selected_series', 'selected_value', 'selected_source', 'selected_units', 'historical_median', 'baseline_years', 'difference_from_median', 'terra_observed', 'aqua_observed', 'snpp_observed', 'main_terra_equivalent'], rows);
     text('action-status', `Downloaded ${rows.length} calendar months. Empty values indicate unavailable source periods.`);
   });
   document.querySelectorAll('[data-export]').forEach((button) => button.addEventListener('click', async () => {
+    if (!state.data) return;
+    const generation = state.loadGeneration;
     const id = button.dataset.export;
     const format = button.dataset.format;
     button.disabled = true;
     text('action-status', `Preparing the ${format.toUpperCase()} figure…`);
     try {
-      await exportChart($(id), format, { filename: `flarefront-${id}-${state.series}-${id === 'heatmap' ? `${state.start}-${state.end}` : state.selected}`, widthInches: 7.16, heightInches: id === 'heatmap' ? 5.37 : 3.58 });
-      text('action-status', `${format.toUpperCase()} figure downloaded.`);
-    } catch (error) { text('action-status', `Figure export failed: ${error.message}`); }
-    finally { button.disabled = false; }
+      await exportChart($(id), format, { filename: `flarefront-${state.region.id}-${id}-${state.series}-${id === 'heatmap' ? `${state.start}-${state.end}` : state.selected}`, widthInches: 7.16, heightInches: id === 'heatmap' ? 5.37 : 3.58 });
+      if (generation === state.loadGeneration) text('action-status', `${format.toUpperCase()} figure downloaded.`);
+    } catch (error) { if (generation === state.loadGeneration) text('action-status', `Figure export failed: ${error.message}`); }
+    finally { if (generation === state.loadGeneration) button.disabled = false; }
   }));
 }
 
 function selectMonth(key) {
+  if (!state.data) return;
   if (!state.data.months.some((row) => monthKey(row.year, row.month) === key) || key < state.start || key > state.end) {
     $('selected-month').value = state.selected;
     return;
@@ -171,7 +260,9 @@ function shiftMonth(amount) {
 }
 
 async function render() {
+  if (!state.data) return;
   const record = selectedRecord();
+  renderHarmonizationExample(state.data, record);
   const months = filteredMonths();
   const value = seriesValue(record, state.series);
   const source = sourceForMonth(state.series, record.year, state.data.meta.switch_year);
@@ -186,7 +277,7 @@ async function render() {
   $('next-month').disabled = state.selected >= state.end;
   text('count-label', state.series === 'main' ? 'Terra-Equivalent Detections' : 'Observed Hotspot Detections');
   text('stat-main', format(value));
-  text('stat-main-note', state.series === 'main' && source === 'snpp' ? 'Scaled Suomi-NPP estimate' : `${SERIES_NAMES[source]} · unadjusted`);
+  text('stat-main-note', state.series === 'main' && source === 'snpp' ? state.data.meta.alpha === null ? 'County calibration unavailable' : state.data.validation.passed ? 'Scaled Suomi-NPP estimate' : 'Experimental · Calibration did not pass' : `${SERIES_NAMES[source]} · unadjusted`);
   text('stat-points', value === null ? 'Unavailable' : selectedPoints === null ? 'Unavailable' : number.format(selectedPoints.length));
   text('stat-points-note', `${SERIES_NAMES[source]} · observed records`);
   text('stat-median', format(baseline.value));
@@ -196,12 +287,14 @@ async function render() {
   for (const id of ['stat-main', 'stat-points', 'stat-median', 'stat-change']) {
     $(id).classList.toggle('unavailable', $(id).textContent === 'Unavailable');
   }
-  text('calendar-description', `${SERIES_NAMES[state.series]}${state.series === 'main' ? ` · α = ${state.data.meta.alpha.toFixed(4)}` : ''} · ${units()}. Each cell is one calendar month; gray cells are unavailable. Colors are logarithmic, with fixed bounds for each series across date filters.`);
-  text('switch-caption', state.series === 'main' ? `Source switch in ${state.data.meta.switch_year}: observed Terra counts before the switch; α × Suomi-NPP counts afterward. Retrospective estimates, not incident counts.` : 'Unadjusted qualifying observations. Sensor availability and processing versions vary across the historical record.');
+  text('calendar-description', `${SERIES_NAMES[state.series]}${state.series === 'main' ? state.data.meta.alpha === null ? ' · calibration unavailable' : ` · α = ${state.data.meta.alpha.toFixed(4)}` : ''} · ${units()}. Each cell is one calendar month; gray cells are unavailable. Colors are logarithmic, with fixed bounds for each series across date filters.`);
+  text('switch-caption', state.series === 'main' ? state.data.meta.alpha === null ? `County calibration is unestimable. Main-series values from ${state.data.meta.switch_year} are withheld; select a raw sensor to inspect observed counts.` : `Source switch in ${state.data.meta.switch_year}: observed Terra counts before the switch; α × Suomi-NPP counts afterward. Retrospective estimates, not incident counts.` : 'Unadjusted qualifying observations. Sensor availability and processing versions vary across the historical record.');
   text('weekly-description', `${monthLabel(record)} · ${SERIES_NAMES[state.series]}. ${value === null ? 'This source is unavailable for the selected month.' : `Weekly pieces sum to ${format(value)} ${units().toLowerCase()}.`}`);
   text('map-description', `${monthLabel(record)} · ${SERIES_NAMES[source]} observed detections`);
-  text('map-caption', value === null ? 'This source is unavailable for the selected month; no detections are plotted.' : selectedPoints === null ? `Point records unavailable. ${state.mapError ?? ''}` : `${number.format(selectedPoints.length)} raw hotspot points. ${state.series === 'main' && source === 'snpp' ? `The calendar value is scaled by α = ${state.data.meta.alpha.toFixed(4)}; map points remain observations.` : 'Multiple detections may belong to the same fire.'} County outline: Census 2026. No basemap imagery.`);
-  text('download-description', `${state.start} through ${state.end} · ${SERIES_NAMES[state.series]}. Point CSV contains the source's observed records; calendar CSV keeps estimates separate.`);
+  $('point-key').style.backgroundColor = colors[source];
+  text('point-key-label', `${SERIES_NAMES[source]} Detection`);
+  text('map-caption', value === null ? 'This source is unavailable for the selected month; no detections are plotted.' : selectedPoints === null ? `Point records unavailable. ${state.mapError ?? ''}` : `${number.format(selectedPoints.length)} raw hotspot points. ${state.series === 'main' && source === 'snpp' ? `The calendar value is scaled by α = ${state.data.meta.alpha.toFixed(4)}; map points remain observations.` : 'Multiple detections may belong to the same fire.'} County outline: Census 2026. Hotspot coverage is limited to ${countyName(state.region)}.`);
+  text('download-description', `${countyName(state.region)} · ${state.start} through ${state.end} · ${SERIES_NAMES[state.series]}. Point CSV contains the source's observed records; calendar CSV keeps estimates separate.`);
   $('download-points').disabled = !state.points;
   renderPeaks(months);
   renderMap(value === null ? [] : selectedPoints ?? []);
@@ -220,7 +313,7 @@ function cellColor(value, max) {
 async function renderHeatmap(months) {
   const values = months.map((row) => seriesValue(row, state.series));
   const max = Math.max(0, ...state.data.months.map((row) => seriesValue(row, state.series) ?? 0));
-  const ticks = max ? [...[0, 1, 3, 10, 30, 100, 300, 1000, 3000].filter((value) => value < max * .8), max] : [0];
+  const ticks = max ? [...[0, 1, 10, 100, 1000].filter((value) => value < max * .8), max] : [0];
   const years = [...new Set(months.map((row) => row.year))].sort((a, b) => a - b);
   const shapes = months.map((row, index) => ({ type: 'rect', x0: row.month - .47, x1: row.month + .47, y0: row.year - .43, y1: row.year + .43, fillcolor: cellColor(values[index], max), line: { width: 0 }, layer: 'below' }));
   const record = selectedRecord();
@@ -230,7 +323,7 @@ async function renderHeatmap(months) {
   layout.yaxis = { ...layout.yaxis, tickmode: 'array', tickvals: years, ticktext: years.map(String), range: [years.at(-1) + .6, years[0] - .6], tickfont: { size: 10 }, ticks: '', title: { text: 'Year', font: { size: 14 } } };
   const colorbar = {
     orientation: 'h', x: .5, xanchor: 'center', y: -.08, yanchor: 'top', len: .9,
-    thickness: 9, outlinewidth: .6, outlinecolor: '#444444',
+    thickness: 14, outlinewidth: .6, outlinecolor: '#444444',
     tickvals: ticks.map((value) => logColorPosition(value, max)), ticktext: ticks.map(format),
     tickfont: { family: 'Arial', size: 10 },
     title: {
@@ -299,13 +392,32 @@ function renderPeaks(months) {
 }
 
 function setupMap() {
+  if ($('calendar-view').hidden) return;
   if (!state.county || !window.L) {
+    text('map-tiles-status', 'The county map is unavailable. Calendar values remain available.');
     const message = document.createElement('p'); message.className = 'map-empty'; message.textContent = `The county map is unavailable. ${state.mapError ?? 'County geometry was not loaded.'}`; $('county-map').append(message); return;
   }
   try {
-    state.map = L.map('county-map', { scrollWheelZoom: false, attributionControl: true, preferCanvas: true });
-    const boundary = L.geoJSON(state.county, { style: { color: '#7b8798', weight: 1.2, fillColor: '#d8dfe8', fillOpacity: .65 } }).addTo(state.map);
-    state.map.fitBounds(boundary.getBounds(), { padding: [14, 14] });
+    state.map = L.map('county-map', { scrollWheelZoom: false, attributionControl: true, preferCanvas: true, minZoom: 2, maxZoom: 19, zoomSnap: .25, zoomAnimation: false, fadeAnimation: false });
+    const map = state.map;
+    const failedTiles = new Set();
+    const basemap = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19, updateWhenIdle: true, keepBuffer: 0,
+      attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors',
+    });
+    const tileKey = ({ x, y, z }) => `${z}/${x}/${y}`;
+    const tileStatus = () => {
+      if (state.map !== map) return;
+      text('map-tiles-status', failedTiles.size ? 'Some background map tiles could not load. The county outline and hotspot data remain available.' : 'OpenStreetMap · Roads And Place Names. Zoom out for surrounding regions and countries.');
+      $('map-tiles-status').classList.toggle('error-message', failedTiles.size > 0);
+    };
+    basemap.on('tileerror', ({ coords }) => { failedTiles.add(tileKey(coords)); tileStatus(); });
+    basemap.on('tileload', ({ coords }) => { failedTiles.delete(tileKey(coords)); tileStatus(); });
+    basemap.on('tileunload', ({ coords }) => { failedTiles.delete(tileKey(coords)); tileStatus(); });
+    basemap.addTo(state.map);
+    const boundary = L.geoJSON(state.county, { style: { color: '#415c73', weight: 1.6, fillColor: '#d8dfe8', fillOpacity: .025 } }).addTo(state.map);
+    state.countyBounds = boundary.getBounds();
+    state.map.fitBounds(state.countyBounds, { padding: [14, 14], animate: false });
     state.map.attributionControl.setPrefix(false);
     state.map.attributionControl.addAttribution('Census 2026 county boundary');
     state.pointLayer = L.layerGroup().addTo(state.map);
@@ -316,6 +428,7 @@ function setupMap() {
 }
 
 function renderMap(rows) {
+  state.mapRows = rows;
   if (!state.map || !state.pointLayer || !state.points) return;
   state.pointLayer.clearLayers();
   const indices = Object.fromEntries(state.points.columns.map((column, index) => [column, index]));
@@ -340,15 +453,18 @@ function appendTable(target, headers, rows) {
 
 function renderMethods() {
   const { meta, validation, quality } = state.data;
-  text('header-period', `${meta.county ?? 'Los Angeles County'} · 2001–2025`);
-  text('calibration-description', `Terra MODIS is the reference. The main calendar uses observed Terra counts through ${meta.switch_year - 1}, then α × Suomi-NPP counts from ${meta.switch_year}. α = ${meta.alpha.toFixed(6)} is fitted once as the ratio of summed Terra to Suomi-NPP training counts in ${validation.training.start_year}–${validation.training.end_year}. Aqua remains a separate raw comparison.`);
+  for (const id of ['validation-metrics', 'quality-summary', 'version-summary', 'limitations-list', 'source-list']) $(id).replaceChildren();
+  text('header-period', `${state.region.city} · County-Wide Record · UTC`);
+  text('footer-region', `${countyName(state.region)} · Historical Hotspot Harmonization`);
+  text('county-measurement', `Qualifying hotspot detections inside the full ${countyName(state.region)} boundary. Type 0 records qualify at MODIS confidence ≥ 30 or Suomi-NPP nominal/high confidence. Exact repeated location/date/time/satellite keys are removed; separate overpasses remain separate observations.`);
+  text('calibration-description', meta.alpha === null ? `Terra MODIS is the reference. ${validation.reason ?? 'The county overlap cannot support a scale factor.'} Main-series values from ${meta.switch_year} are withheld. Raw sensor counts remain available.` : `Terra MODIS is the reference. The main calendar uses observed Terra counts through ${meta.switch_year - 1}, then α × Suomi-NPP counts from ${meta.switch_year}. County-specific α = ${meta.alpha.toFixed(6)} is fitted once as the ratio of summed Terra to Suomi-NPP training counts in ${validation.training.start_year}–${validation.training.end_year}. Aqua remains a separate raw comparison.`);
   text('baseline-description', 'The historical median uses the same calendar month in every other available year across the full record, excluding the selected year, for both main and raw series. Date filters do not change this reference. These retrospective medians are not forecasts.');
   const passed = validation.passed === true;
-  text('validation-status', passed ? 'Calibration passed the predefined held-out comparison.' : 'Experimental estimate: calibration did not pass the predefined held-out comparison. The validated milestone remains incomplete.');
+  text('validation-status', meta.alpha === null ? `County calibration unestimable. ${validation.reason ?? 'Adjusted comparisons are withheld.'}` : passed ? 'This county calibration passed the predefined held-out comparison.' : 'This county calibration did not pass the predefined held-out comparison. Adjusted values remain experimental.');
   $('validation-status').classList.toggle('passed', passed);
   appendTable($('validation-metrics'), ['Monthly MAE Against Terra', 'Detections'], [['Adjusted Suomi-NPP', format(validation.mae.adjusted)], ['Unscaled Suomi-NPP', format(validation.mae.unscaled)], ['Training Seasonal Median', format(validation.mae.seasonal)]]);
   if (Array.isArray(validation.by_year) && validation.by_year.length) appendTable($('validation-metrics'), ['Year', 'Adjusted MAE', 'Unscaled MAE', 'Seasonal MAE'], validation.by_year.map((row) => [row.year, format(row.adjusted), format(row.unscaled), format(row.seasonal)]));
-  text('validation-period', `Evaluation: ${validation.test.start_year}–${validation.test.end_year}, ${validation.test.months} monthly comparisons. A pass requires adjusted MAE strictly below both baselines on identical eligible months. Training totals: ${format(validation.training.terra_total)} Terra and ${format(validation.training.snpp_total)} Suomi-NPP detections.`);
+  text('validation-period', `${meta.alpha === null ? 'Planned evaluation' : 'Evaluation'}: ${validation.test.start_year}–${validation.test.end_year}. ${meta.alpha === null ? 'No adjusted comparison is available.' : `${validation.test.months} monthly comparisons. A pass requires adjusted MAE strictly below both baselines on identical eligible months.`} Training totals: ${format(validation.training.terra_total)} Terra and ${format(validation.training.snpp_total)} Suomi-NPP detections.`);
   const accounting = document.createElement('div'); accounting.className = 'quality-items';
   for (const [label, key] of [['Envelope Candidates', 'raw_candidates'], ['Inside County', 'inside_county'], ['Qualifying Records', 'qualifying'], ['Exact Duplicates Removed', 'duplicates']]) {
     const item = document.createElement('span'); const value = document.createElement('strong'); value.textContent = format(quality[key]); item.append(value, ` ${label}`); accounting.append(item);
@@ -357,12 +473,9 @@ function renderMethods() {
   if (quality.exclusions && Object.keys(quality.exclusions).length) appendTable($('quality-summary'), ['Exclusion Reason', 'Records'], Object.entries(quality.exclusions).map(([key, value]) => [key.replaceAll('_', ' '), typeof value === 'number' ? format(value) : JSON.stringify(value)]));
   const versions = validation.version_groups;
   const versionText = document.createElement('p');
-  versionText.textContent = 'Processing-version strings are preserved in the observed point CSV. The historical record is not assumed to have uniform processing. The grouped held-out errors below compare the fixed calibration across the observed MODIS version transition.';
+  versionText.textContent = `Processing-version strings are preserved in the observed point CSV. The historical record is not assumed to have uniform processing.${meta.alpha === null ? ' Adjusted errors are withheld because county calibration is unestimable.' : ' The grouped held-out errors below compare the county calibration across the observed MODIS version transition.'}`;
   $('version-summary').append(versionText);
   if (Array.isArray(versions) && versions.length) appendTable($('version-summary'), ['Evaluation Years', 'Months', 'Adjusted MAE', 'Unscaled MAE', 'Seasonal MAE'], versions.map((group) => [`${group.start_year}–${group.end_year}`, group.months, format(group.adjusted), format(group.unscaled), format(group.seasonal)]));
-  const acknowledgment = document.createElement('p');
-  acknowledgment.textContent = 'AI assisted code editor was used for code development';
-  $('source-list').parentElement.append(acknowledgment);
   for (const limitation of state.data.limitations ?? []) { const item = document.createElement('li'); item.textContent = limitation; $('limitations-list').append(item); }
   for (const source of state.data.sources ?? []) {
     const item = document.createElement('li');
@@ -373,4 +486,78 @@ function renderMethods() {
   text('data-metadata', `${meta.start_date} through ${meta.end_date} · ${meta.timezone ?? 'UTC'} · County GEOID ${meta.geoid ?? '06037'}. All temporal aggregation uses acquisition dates in UTC. The same Census 2026 county boundary is applied to every year.`);
 }
 
+function resizeVisibleCharts() {
+  document.querySelectorAll('.js-plotly-plot').forEach((chart) => {
+    if (chart.checkVisibility()) Plotly.Plots.resize(chart);
+  });
+  if (!$('calendar-view').hidden) state.map?.invalidateSize({ animate: false });
+}
+
+function openView(name, focus = false) {
+  for (const view of ['calendar', 'decisions']) {
+    const active = view === name;
+    $(`${view}-view`).hidden = !active;
+    $(`${view}-tab`).setAttribute('aria-selected', String(active));
+    $(`${view}-tab`).tabIndex = active ? 0 : -1;
+  }
+  if (focus) $(`${name}-tab`).focus();
+  markWorkflowStep(name === 'calendar' ? 'harmonization-example' : 'prediction-evidence');
+  window.scrollTo({ top: 0, behavior: 'instant' });
+  requestAnimationFrame(() => {
+    if (name === 'calendar' && state.data && !state.map) { setupMap(); renderMap(state.mapRows); }
+    resizeVisibleCharts();
+  });
+}
+
+function markWorkflowStep(target) {
+  document.querySelectorAll('.workflow a,.workflow button').forEach((control) => {
+    if ((control.dataset.calendarTarget ?? control.dataset.openDecisions) === target) control.setAttribute('aria-current', 'step');
+    else control.removeAttribute('aria-current');
+  });
+}
+
+function revealWorkflowTarget(target) {
+  const element = $(target);
+  if (!element) return;
+  for (let parent = element.parentElement; parent; parent = parent.parentElement) if (parent.tagName === 'DETAILS') parent.open = true;
+  markWorkflowStep(target);
+  requestAnimationFrame(() => {
+    element.scrollIntoView({ block: 'start', behavior: 'instant' });
+    element.tabIndex = -1;
+    element.focus({ preventScroll: true });
+  });
+}
+
+function restoreViewFromHash() {
+  const target = location.hash.slice(1);
+  const decisionTarget = $(target)?.closest('#decisions-view');
+  openView(target === 'decisions' || decisionTarget ? 'decisions' : 'calendar');
+  if (target && !['calendar', 'decisions'].includes(target)) revealWorkflowTarget(target);
+}
+
+for (const name of ['calendar', 'decisions']) {
+  $(`${name}-tab`).addEventListener('click', () => { location.hash = name; openView(name); });
+  $(`${name}-tab`).addEventListener('keydown', (event) => {
+    if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    const target = event.key === 'Home' ? 'calendar' : event.key === 'End' ? 'decisions' : name === 'calendar' ? 'decisions' : 'calendar';
+    location.hash = target; openView(target, true);
+  });
+}
+document.querySelectorAll('[data-open-decisions]').forEach((button) => button.addEventListener('click', () => {
+  const target = button.dataset.openDecisions;
+  history.pushState(null, '', `#${target || 'decisions'}`); openView('decisions');
+  if (target) revealWorkflowTarget(target);
+}));
+document.querySelectorAll('[data-calendar-target]').forEach((link) => link.addEventListener('click', (event) => {
+  event.preventDefault();
+  history.pushState(null, '', `#${link.dataset.calendarTarget}`);
+  openView('calendar');
+  revealWorkflowTarget(link.dataset.calendarTarget);
+}));
+document.querySelectorAll('details').forEach((details) => details.addEventListener('toggle', () => {
+  if (details.open) requestAnimationFrame(resizeVisibleCharts);
+}));
+window.addEventListener('hashchange', restoreViewFromHash);
+restoreViewFromHash();
 initialize();

@@ -1,14 +1,15 @@
 import { cp, lstat, mkdir, readdir, readFile, realpath, rm, stat } from 'node:fs/promises';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { validateRegions, validateRegionalDashboard } from '../web/regions.js';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const source = join(root, 'web');
 const destination = resolve(root, 'dist');
-const runtimeFiles = ['index.html', 'styles.css', 'app.js', 'calendar.js', 'exports.js'];
-const runtimeDirectories = ['data', 'vendor', 'figures'];
+const runtimeFiles = ['index.html', 'styles.css', 'app.js', 'calendar.js', 'exports.js', 'harmonization.js', 'decision.js', 'decisions-view.js', 'regions.js', 'training.js', 'prediction.js'];
+const runtimeDirectories = ['assets', 'data', 'vendor', 'figures'];
 const notices = ['LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES'];
-const requiredData = ['dashboard.json', 'points.json', 'county.geojson', 'hotspots.csv', 'calendar.csv'];
+const requiredData = ['dashboard.json', 'points.json', 'county.geojson', 'hotspots.csv', 'calendar.csv', 'decision-inputs.json', 'decision-scenario-template.json', 'emit-ndwi.json', 'regions.json', 'training-scenario.json', 'prediction.json'];
 const requiredVendor = ['plotly.min.js', 'leaflet.js', 'leaflet.css'];
 
 async function regularFiles(directory, prefix = '') {
@@ -27,10 +28,17 @@ async function build() {
   if (targetRelative !== 'dist' || destination === root || targetRelative.startsWith(`..${sep}`)) throw new Error('Build output must be the project dist directory.');
   for (const name of runtimeFiles) if (!(await stat(join(source, name))).isFile()) throw new Error(`Missing runtime source ${name}`);
   for (const name of requiredData) if (!(await stat(join(source, 'data', name))).isFile()) throw new Error(`Missing runtime data ${name}`);
+  const registry = validateRegions(JSON.parse(await readFile(join(source, 'data/regions.json'), 'utf8')));
+  for (const region of registry.regions) {
+    for (const name of ['dashboard.json', 'points.json', 'county.geojson', 'calendar.csv', 'hotspots.csv']) {
+      if (!(await stat(join(source, region.data_path, name))).isFile()) throw new Error(`Missing ${region.city} record: ${name}`);
+    }
+    validateRegionalDashboard(JSON.parse(await readFile(join(source, region.data_path, 'dashboard.json'), 'utf8')), region);
+  }
   for (const name of requiredVendor) if (!(await stat(join(source, 'vendor', name))).isFile()) throw new Error(`Missing local vendor asset ${name}`);
   for (const name of notices) if (!(await stat(join(root, name))).isFile()) throw new Error(`Missing distribution notice ${name}`);
   const directoryFiles = new Map();
-  for (const directory of runtimeDirectories) directoryFiles.set(directory, await regularFiles(join(source, directory)));
+  for (const directory of runtimeDirectories) directoryFiles.set(directory, (await regularFiles(join(source, directory))).filter((name) => !(directory === 'data' && name === 'historical-response.json')));
   const allowedExtensions = /\.(?:json|geojson|csv|js|css|png|gif|svg|txt|map|woff2?|ttf|html)$/i;
   for (const [directory, files] of directoryFiles) for (const name of files) {
     if ((!allowedExtensions.test(name) && !/^(?:[A-Z]+-)?(?:LICENSE|COPYING|NOTICE)(?:\..*)?$/i.test(basename(name))) || name.split(/[\\/]/).some((part) => part.startsWith('.'))) throw new Error(`Unexpected runtime file: ${directory}/${name}`);
@@ -48,7 +56,7 @@ async function build() {
   }
   for (const name of notices) await cp(join(root, name), join(destination, name));
   const dashboard = JSON.parse(await readFile(join(destination, 'data/dashboard.json'), 'utf8'));
-  console.log(`Built ${destination}: ${runtimeFiles.length + notices.length + [...directoryFiles.values()].reduce((sum, files) => sum + files.length, 0)} files, ${dashboard.months.length} calendar months.`);
+  console.log(`Built ${destination}: ${runtimeFiles.length + notices.length + [...directoryFiles.values()].reduce((sum, files) => sum + files.length, 0)} files, ${registry.regions.length} county records, ${dashboard.months.length} months per calendar.`);
 }
 
 build().catch((error) => { console.error(`Build failed: ${error.message}`); process.exitCode = 1; });

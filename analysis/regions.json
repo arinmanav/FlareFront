@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "default_region": "los-angeles",
+  "regions": [
+    {"id": "los-angeles", "city": "Los Angeles", "county": "Los Angeles County", "geoid": "06037", "data_path": "."},
+    {"id": "san-diego", "city": "San Diego", "county": "San Diego County", "geoid": "06073", "data_path": "regions/san-diego"},
+    {"id": "san-jose", "city": "San Jose", "county": "Santa Clara County", "geoid": "06085", "data_path": "regions/san-jose"},
+    {"id": "sacramento", "city": "Sacramento", "county": "Sacramento County", "geoid": "06067", "data_path": "regions/sacramento"}
+  ]
+}

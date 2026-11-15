@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "purpose": "Exploratory comparison of monthly Suomi-NPP counts calibrated to Terra counts; no runtime data replacement",
+  "reference": "terra",
+  "source": "snpp",
+  "training_start": 2013,
+  "training_end": 2019,
+  "validation_years": [2016, 2017, 2018, 2019],
+  "benchmark_start": 2020,
+  "benchmark_end": 2025,
+  "benchmark_status": "Previously inspected; not an untouched confirmatory test",
+  "selection": {
+    "metric": "pooled_out_of_time_mae",
+    "minimum_relative_improvement": 0.05,
+    "maximum_peak_mae_ratio": 1.1,
+    "peak_months": 5,
+    "tie_order": "candidate list order",
+    "fallback": "ratio"
+  },
+  "candidates": [
+    {"id": "ratio", "kind": "ratio"},
+    {"id": "recent_ratio", "kind": "ratio", "recent_years": 3},
+    {"id": "quarter_ratio_025", "kind": "quarter_ratio", "prior_fraction": 0.25},
+    {"id": "quarter_ratio_1", "kind": "quarter_ratio", "prior_fraction": 1.0},
+    {"id": "solar_ratio_025", "kind": "solar_ratio", "prior_fraction": 0.25},
+    {"id": "solar_ratio_1", "kind": "solar_ratio", "prior_fraction": 1.0},
+    {"id": "poisson_count_1", "kind": "poisson", "seasonal": false, "penalty": 1.0},
+    {"id": "poisson_season_1", "kind": "poisson", "seasonal": true, "penalty": 1.0},
+    {"id": "poisson_season_10", "kind": "poisson", "seasonal": true, "penalty": 10.0}
+  ],
+  "solar_period": "Approximate local solar hour = (UTC hour + minute/60 + longitude/15) modulo 24; day = [06,18), night = remaining hours. This is an acquisition-time proxy, not a quality illumination mask or observation denominator.",
+  "quarter_ratio": "For each quarter: (quarter Terra total + prior_fraction * all Terra total / 4) / (quarter VIIRS total + prior_fraction * all VIIRS total / 4).",
+  "solar_ratio": "For each solar period: (period Terra total + prior_fraction * all Terra total / 2) / (period VIIRS total + prior_fraction * all VIIRS total / 2); sum the two scaled source counts.",
+  "poisson": "log(mu) = intercept + slope*log(1+VIIRS) [+ sine*sin(2*pi*(month-1)/12) + cosine*cos(2*pi*(month-1)/12)]. Minimize mean(mu-y*log(mu)) + penalty/2*((slope-1)^2 + sine^2 + cosine^2). Intercept is unpenalized. No probabilistic uncertainty claim; counts may be overdispersed.",
+  "limitations": [
+    "Candidate definitions follow inspection of the existing benchmark; this is exploratory despite restricting model selection to training years.",
+    "All candidates use the same months and original qualifying source counts. Missing counts are not replaced with zero.",
+    "The source archive has detection points, not verified cloud-free observation opportunities or full pixel footprints.",
+    "Solar period matching does not make Terra and VIIRS overpasses simultaneous.",
+    "An observed peak-month diagnostic is evaluated after predictions are frozen; peak months are not model features.",
+    "No chart smoothing, peak shifting, target-reference change, new data exclusion or replacement of the published record is performed."
+  ]
+}

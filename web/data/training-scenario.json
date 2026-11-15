@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "kind": "synthetic_training",
+  "title": "Santa Clarita Training Exercise",
+  "context": {
+    "cutoff": "2024-06-17T00:00:00Z",
+    "historical_month": "2024-05",
+    "region_id": "los-angeles"
+  },
+  "description": "Fictional bases, abstract demand cells and simulated travel times for a personnel-allocation exercise. No base represents a real station.",
+  "evidence_note": "Real MODIS, VIIRS and EMIT observations provide separate historical context. They are not used to generate the simulated expected incidents or travel times.",
+  "limitations": "This exercise is not a trained incident model. Coverage counts each reachable demand cell once; crew capacity, road conditions, actual response times and dispatch authority are not modeled.",
+  "fixed_base": "a",
+  "fixed_crews": 4,
+  "mobile_crews": 1,
+  "defaults": {
+    "crew_size": 4,
+    "threshold_minutes": 15,
+    "mobile_base": "a"
+  },
+  "bases": [
+    { "id": "a", "name": "Fictional Base A" },
+    { "id": "b", "name": "Fictional Base B" },
+    { "id": "c", "name": "Fictional Base C" }
+  ],
+  "cells": [
+    { "id": "A", "expected_incidents": 2 },
+    { "id": "B", "expected_incidents": 1 },
+    { "id": "C", "expected_incidents": 3 },
+    { "id": "D", "expected_incidents": 2 },
+    { "id": "E", "expected_incidents": 1 },
+    { "id": "F", "expected_incidents": 1 }
+  ],
+  "travel_minutes": {
+    "a": { "A": 5, "B": 8, "C": 25, "D": 30, "E": 40, "F": 45 },
+    "b": { "A": 25, "B": 20, "C": 6, "D": 9, "E": 30, "F": 35 },
+    "c": { "A": 35, "B": 30, "C": 25, "D": 12, "E": 6, "F": 9 }
+  }
+}
