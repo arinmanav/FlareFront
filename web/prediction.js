@@ -93,13 +93,13 @@ function renderMap() {
     const boundary = L.geoJSON({ type: 'FeatureCollection', features: region.cells.map((cell) => ({ type: 'Feature', properties: {}, geometry: cell.geometry })) });
     state.map.fitBounds(boundary.getBounds(), { padding: [12, 12], animate: false }); state.mapRegion = viewKey;
   }
-  $('prediction-map-heading').textContent = state.revealed ? `Observed Activity · Week ${week + 1}` : 'Evidence Available Before The Window';
+  $('prediction-map-heading').textContent = state.revealed ? `Observed Activity · Week ${week + 1}` : 'Recent VIIRS Detections';
   $('prediction-map-legend').textContent = state.revealed ? 'Orange: observed activity · Dark outline: your chosen area · Pale: no recorded detection' : 'Blue: recent VIIRS detections (log shading) · Dark outline: selected area · Pale: no recorded detection';
 }
 
 function renderSelection() {
   const cell = currentRegion().cells.find((item) => item.id === $('prediction-area').value);
-  if (!cell) { $('prediction-selection').textContent = 'Select an area on the map or from the list, then choose a week.'; return; }
+  if (!cell) { $('prediction-selection').textContent = ''; return; }
   $('prediction-selection').textContent = `${cell.label} · ${Math.abs(cell.center[1]).toFixed(2)}° N, ${Math.abs(cell.center[0]).toFixed(2)}° W · ${weekLabel(currentCase(), Number($('prediction-week').value))}`;
 }
 
@@ -107,8 +107,8 @@ function renderCase() {
   state.revealed = false;
   const region = currentRegion(); const record = currentCase();
   $('prediction-result').hidden = true; $('prediction-lock').disabled = false; $('prediction-area').disabled = false;
-  $('prediction-lock').textContent = 'Lock Prediction And Reveal Observations';
-  $('prediction-origin').textContent = `${region.county} · ${dateLabel(record.origin)} · Window ${state.caseIndex + 1} Of ${region.cases.length}`;
+  $('prediction-lock').textContent = 'Lock And Reveal';
+  $('prediction-origin').textContent = `${region.county} · Window ${state.caseIndex + 1} Of ${region.cases.length}`;
   $('prediction-evidence-note').textContent = `Recent evidence: ${dateLabel(shiftedDate(record.input_end_exclusive, -28))} through ${dateLabel(shiftedDate(record.input_end_exclusive, -1))}. The two days immediately before the forecast are excluded. Seasonal history uses 2013–2019 only.`;
   $('prediction-area').replaceChildren(option('', 'Select An Area'), ...region.cells.map((cell) => option(cell.id, `${cell.label} · ${cell.center[1].toFixed(2)} N, ${Math.abs(cell.center[0]).toFixed(2)} W`)));
   $('prediction-area').selectedIndex = 0;
@@ -167,6 +167,12 @@ export async function initializePrediction(onRegionChange) {
     $('prediction-limitations').replaceChildren(...state.data.protocol.limitations.map((text) => element('li', text)));
     const overview = $('prediction-overview'); overview.replaceChildren();
     for (const region of state.data.regions) overview.append(tableRow([region.city, ...state.data.protocol.methods.map((method) => `${region.metrics[method].hits} / ${region.metrics[method].windows}`)]));
+    const totals = state.data.regions.reduce((sum, region) => ({
+      windows: sum.windows + region.cases.length,
+      recent: sum.recent + region.metrics.recent.hits,
+      combined: sum.combined + region.metrics.multisensor.hits,
+    }), { windows: 0, recent: 0, combined: 0 });
+    $('prediction-study-summary').textContent = `Across ${totals.windows} windows, recent VIIRS matched ${totals.recent} area-week choices; the combined MODIS / VIIRS rule matched ${totals.combined}. ${totals.combined <= totals.recent ? 'Combining them did not improve the overall score.' : 'This increase does not establish general forecasting skill.'} These are exploratory results.`;
     renderWindowOptions(); renderCase(); renderBenchmark();
     const observer = new ResizeObserver(() => { if ($('prediction-map').checkVisibility()) renderMap(); });
     observer.observe($('prediction-map'));

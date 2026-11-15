@@ -3,7 +3,6 @@ import { downloadCsv, exportChart } from './exports.js';
 import { initializeDecisions } from './decisions-view.js';
 import { initializeHarmonization, renderHarmonizationExample } from './harmonization.js';
 import { validateRegions, regionFromSearch, validateRegionalDashboard, createRegionLoader } from './regions.js';
-import { initializeTraining } from './training.js';
 import { initializePrediction, selectPredictionRegion } from './prediction.js';
 
 const state = {
@@ -131,7 +130,6 @@ async function selectRegion(region, updateUrl = false) {
 async function initialize() {
   bindControls();
   calendarControls(true);
-  const trainingReady = initializeTraining(inspectTrainingEvidence);
   const predictionReady = initializePrediction((id) => {
     const region = state.registry?.regions.find((entry) => entry.id === id);
     if (region && region.id !== state.region?.id) selectRegion(region, true);
@@ -157,33 +155,9 @@ async function initialize() {
     });
     await selectRegion(regionFromSearch(state.registry, location.search));
   } catch (error) { calendarControls(true); showLoadStatus(`County records unavailable. ${error.message}`, true); }
-  await Promise.all([trainingReady, predictionReady]);
+  await predictionReady;
   if (state.region) selectPredictionRegion(state.region.id);
-}
-
-async function inspectTrainingEvidence({ region, month, target }) {
-  if (region) {
-    const selected = state.registry?.regions.find((entry) => entry.id === region);
-    if (!selected) throw new Error('The training county record is unavailable.');
-    state.start = '2001-01'; state.end = '2025-12'; state.selected = month; state.series = 'main';
-    openView('calendar');
-    if (state.region?.id !== region || !state.data) await selectRegion(selected, true);
-    else {
-      $('start-month').value = state.start; $('end-month').value = state.end; $('series').value = state.series;
-      await render();
-    }
-    if (!state.data || state.region?.id !== region) throw new Error('The training county record could not be loaded.');
-    history.pushState(null, '', `?region=${region}#calendar`);
-  } else {
-    await state.decisionReady;
-    if ($('decision-content').hidden) throw new Error('The historical decision evidence is unavailable.');
-    $('decision-cutoff').value = '2024-06-17T00:00';
-    $('decision-lookback').value = '7';
-    $('decision-cutoff').dispatchEvent(new Event('change'));
-    history.pushState(null, '', '#decisions');
-    openView('decisions');
-  }
-  revealWorkflowTarget(target);
+  if (location.hash && !['#calendar', '#decisions'].includes(location.hash)) revealWorkflowTarget(location.hash.slice(1));
 }
 
 function bindControls() {
@@ -408,7 +382,7 @@ function setupMap() {
     const tileKey = ({ x, y, z }) => `${z}/${x}/${y}`;
     const tileStatus = () => {
       if (state.map !== map) return;
-      text('map-tiles-status', failedTiles.size ? 'Some background map tiles could not load. The county outline and hotspot data remain available.' : 'OpenStreetMap · Roads And Place Names. Zoom out for surrounding regions and countries.');
+      text('map-tiles-status', failedTiles.size ? 'Some background map tiles could not load. The county outline and hotspot data remain available.' : '');
       $('map-tiles-status').classList.toggle('error-message', failedTiles.size > 0);
     };
     basemap.on('tileerror', ({ coords }) => { failedTiles.add(tileKey(coords)); tileStatus(); });
@@ -501,7 +475,6 @@ function openView(name, focus = false) {
     $(`${view}-tab`).tabIndex = active ? 0 : -1;
   }
   if (focus) $(`${name}-tab`).focus();
-  markWorkflowStep(name === 'calendar' ? 'harmonization-example' : 'prediction-evidence');
   window.scrollTo({ top: 0, behavior: 'instant' });
   requestAnimationFrame(() => {
     if (name === 'calendar' && state.data && !state.map) { setupMap(); renderMap(state.mapRows); }
@@ -509,18 +482,11 @@ function openView(name, focus = false) {
   });
 }
 
-function markWorkflowStep(target) {
-  document.querySelectorAll('.workflow a,.workflow button').forEach((control) => {
-    if ((control.dataset.calendarTarget ?? control.dataset.openDecisions) === target) control.setAttribute('aria-current', 'step');
-    else control.removeAttribute('aria-current');
-  });
-}
-
 function revealWorkflowTarget(target) {
   const element = $(target);
   if (!element) return;
+  if (element.tagName === 'DETAILS') element.open = true;
   for (let parent = element.parentElement; parent; parent = parent.parentElement) if (parent.tagName === 'DETAILS') parent.open = true;
-  markWorkflowStep(target);
   requestAnimationFrame(() => {
     element.scrollIntoView({ block: 'start', behavior: 'instant' });
     element.tabIndex = -1;

@@ -6,10 +6,10 @@ import { validateRegions, validateRegionalDashboard } from '../web/regions.js';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const source = join(root, 'web');
 const destination = resolve(root, 'dist');
-const runtimeFiles = ['index.html', 'styles.css', 'app.js', 'calendar.js', 'exports.js', 'harmonization.js', 'decision.js', 'decisions-view.js', 'regions.js', 'training.js', 'prediction.js'];
+const runtimeFiles = ['index.html', 'styles.css', 'app.js', 'calendar.js', 'exports.js', 'harmonization.js', 'decision.js', 'decisions-view.js', 'regions.js', 'prediction.js'];
 const runtimeDirectories = ['assets', 'data', 'vendor', 'figures'];
 const notices = ['LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES'];
-const requiredData = ['dashboard.json', 'points.json', 'county.geojson', 'hotspots.csv', 'calendar.csv', 'decision-inputs.json', 'decision-scenario-template.json', 'emit-ndwi.json', 'regions.json', 'training-scenario.json', 'prediction.json'];
+const requiredData = ['dashboard.json', 'points.json', 'county.geojson', 'hotspots.csv', 'calendar.csv', 'decision-inputs.json', 'emit-ndwi.json', 'regions.json', 'prediction.json'];
 const requiredVendor = ['plotly.min.js', 'leaflet.js', 'leaflet.css'];
 
 async function regularFiles(directory, prefix = '') {
@@ -38,7 +38,7 @@ async function build() {
   for (const name of requiredVendor) if (!(await stat(join(source, 'vendor', name))).isFile()) throw new Error(`Missing local vendor asset ${name}`);
   for (const name of notices) if (!(await stat(join(root, name))).isFile()) throw new Error(`Missing distribution notice ${name}`);
   const directoryFiles = new Map();
-  for (const directory of runtimeDirectories) directoryFiles.set(directory, (await regularFiles(join(source, directory))).filter((name) => !(directory === 'data' && name === 'historical-response.json')));
+  for (const directory of runtimeDirectories) directoryFiles.set(directory, (await regularFiles(join(source, directory))).filter((name) => !(directory === 'data' && ['historical-response.json', 'training-scenario.json', 'decision-scenario-template.json'].includes(name))));
   const allowedExtensions = /\.(?:json|geojson|csv|js|css|png|gif|svg|txt|map|woff2?|ttf|html)$/i;
   for (const [directory, files] of directoryFiles) for (const name of files) {
     if ((!allowedExtensions.test(name) && !/^(?:[A-Z]+-)?(?:LICENSE|COPYING|NOTICE)(?:\..*)?$/i.test(basename(name))) || name.split(/[\\/]/).some((part) => part.startsWith('.'))) throw new Error(`Unexpected runtime file: ${directory}/${name}`);

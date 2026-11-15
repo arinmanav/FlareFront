@@ -1,4 +1,4 @@
-import { hotspotContext, rankPlacements } from './decision.js';
+import { hotspotContext } from './decision.js';
 
 const $ = (id) => document.getElementById(id);
 const number = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
@@ -173,23 +173,6 @@ function renderMatrix(evidence, contextAvailable) {
   for (const row of $('decision-matrix-body').rows) [...row.cells].forEach((cell, index) => { if (index) cell.dataset.label = labels[index]; });
 }
 
-function renderPlacement(result, scenario) {
-  $('placement-results').replaceChildren();
-  if (result.status === 'blocked') {
-    $('placement-status').textContent = `Placement comparison unavailable. ${result.reasons.join(' ')}`;
-    return;
-  }
-  $('placement-status').textContent = `Research calculation from supplied model “${scenario.modelId}”, for ${date(scenario.decisionAt)} through ${date(scenario.predictionEnd)}. Highest supplied coverage: ${result.preferredCandidateId}. Inputs and model skill have not been independently verified; this is not a deployment recommendation.`;
-  const table = element('table', undefined, 'metrics-table');
-  const caption = element('caption', `Travel threshold: ${format(scenario.thresholdMinutes)} minutes. Each reachable cell contributes once.`);
-  const head = element('thead'); const row = element('tr');
-  for (const label of ['Fifth-Engine Location', 'Reachable Cells', 'Expected Incidents Covered']) { const cell = element('th', label); cell.scope = 'col'; row.append(cell); }
-  head.append(row);
-  const body = element('tbody');
-  result.rows.forEach((row) => body.append(tableRow([row.label, row.coveredCellIds.length, format(row.expectedCoveredIncidents)])));
-  table.append(caption, head, body); $('placement-results').append(table);
-}
-
 export async function initializeDecisions(dashboard, compactPoints) {
   try {
     const [response, spectralIndex] = await Promise.all([fetch('data/decision-inputs.json'),
@@ -221,17 +204,6 @@ export async function initializeDecisions(dashboard, compactPoints) {
     }
     $('decision-cutoff').addEventListener('change', render);
     $('decision-lookback').addEventListener('change', render);
-    $('scenario-file').addEventListener('change', async (event) => {
-      const file = event.target.files[0]; if (!file) return;
-      $('placement-results').replaceChildren();
-      try {
-        if (file.size > 2 * 1024 * 1024) throw new Error('Scenario files must be at most 2 MB.');
-        const scenario = JSON.parse(await file.text());
-        renderPlacement(rankPlacements(scenario), scenario);
-      } catch (error) { $('placement-status').textContent = `Scenario could not be loaded: ${error.message}`; }
-      finally { event.target.value = ''; }
-    });
-    $('placement-status').textContent = 'No placement is recommended. Verified candidate stations, road-travel times and a validated incident model are not available. Load a research scenario to inspect the coverage calculation.';
     $('decision-sources').replaceChildren(...sources.map(([label, url]) => { const item = element('li'); item.append(link(label, url)); return item; }));
     $('decision-snapshot-time').textContent = `Public-source retrieval batch completed ${date(inputs.retrieved_at)}. Acquisition, observation, forecast issue and forecast validity times are retained separately.`;
     render(); $('decision-load-status').hidden = true; $('decision-content').hidden = false;
