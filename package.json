@@ -1,0 +1,13 @@
+{
+  "name": "flarefront",
+  "version": "1.0.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "description": "Historical satellite hotspot calendar for Los Angeles County",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "start": "node scripts/serve.mjs"
+  }
+}
