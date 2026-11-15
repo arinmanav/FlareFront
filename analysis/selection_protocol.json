@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "population": "All 58 California counties, Census 2026 boundaries",
+  "training_start": 2013,
+  "training_end": 2019,
+  "validation_years": [2016, 2017, 2018, 2019],
+  "minimum_terra_detections": 100,
+  "minimum_positive_terra_months": 24,
+  "required_training_months": 84,
+  "selected_count": 5,
+  "calibration": "alpha = sum(training Terra) / sum(training S-NPP), refitted using only years before each validation year",
+  "seasonal_baseline": "Median Terra count for the same calendar month in preceding training years",
+  "pass_rule": "Pooled 48-month ratio MAE must be strictly less than both raw S-NPP and seasonal-baseline MAE",
+  "ranking": "Ascending pooled ratio MAE / mean validation Terra count, then ascending county GEOID",
+  "qualification": "Existing county polygon, type 0, MODIS confidence >=30, VIIRS confidence n/h, deduplication rules",
+  "later_years": "2020-2025 are excluded from location selection and inspected only after identities are frozen",
+  "limitations": [
+    "This is a selection-based comparison: selected counties have favorable training-period agreement by construction.",
+    "Later years are exploratory and are not independent confirmation of a broadly generalizable harmonization method.",
+    "Eligibility requires complete reported monthly counts, not verified observation opportunities or cloud-free coverage.",
+    "Agreement with Terra counts is not accuracy against wildfire incidents or burned area.",
+    "The current Census boundary is applied consistently to all archive years."
+  ]
+}

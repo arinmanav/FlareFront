@@ -8,9 +8,10 @@ import { createAreaControls } from './area-controls.js';
 import { FIRE_RAMP, fireColor } from './fire-colors.js';
 import { historyNumber, signedNumber, renderCalendarValues, renderDailyCalendar } from './history-view.js';
 import { createPatternsView } from './patterns-view.js';
+import { bindMonthControls } from './month-controls.js';
 
 const state = {
-  series: 'main', start: '2001-01', end: '2025-12', selected: '2025-01',
+  series: 'main', start: '2001-01', end: '2025-12', selected: '2020-08',
   data: null, points: null, county: null, map: null, pointLayer: null,
   mapError: null, heatmapBound: false, countyBounds: null, mapRows: [],
   registry: null, region: null, loadGeneration: 0,
@@ -41,6 +42,7 @@ function chartLayout(overrides = {}) {
 }
 
 let patternsView;
+let monthControls;
 
 async function fetchJson(path, options) {
   const response = await fetch(path, options);
@@ -198,6 +200,7 @@ async function initialize() {
 }
 
 function bindControls() {
+  monthControls = bindMonthControls(document, { getSelection: () => state, onSelect: selectMonth, onShift: shiftMonth });
   $('calendar-mode').addEventListener('change', updateCalendarView);
   $('calendar-year').addEventListener('change', () => {
     const months = filteredMonths().filter((row) => row.year === Number($('calendar-year').value));
@@ -219,14 +222,11 @@ function bindControls() {
     render();
   });
   $('series').addEventListener('change', (event) => { state.series = event.target.value; render(); });
-  $('selected-month').addEventListener('change', (event) => selectMonth(event.target.value));
-  $('previous-month').addEventListener('click', () => shiftMonth(-1));
-  $('next-month').addEventListener('click', () => shiftMonth(1));
   $('reset-filters').addEventListener('click', () => {
     state.areaControls?.clear();
     state.area = null; state.data = state.countyData; state.points = state.countyPoints;
     $('series').querySelector('[value="main"]').disabled = false;
-    state.start = '2001-01'; state.end = '2025-12'; state.selected = '2025-01'; state.series = 'main';
+    state.start = '2001-01'; state.end = '2025-12'; state.selected = '2020-08'; state.series = 'main';
     $('start-month').value = state.start; $('end-month').value = state.end; $('series').value = state.series;
     $('filter-error').hidden = true;
     render();
@@ -257,7 +257,8 @@ function bindControls() {
     button.disabled = true;
     text('action-status', `Preparing the ${format.toUpperCase()} figure…`);
     try {
-      await exportChart($(id), format, { filename: `flarefront-${state.region.id}${areaFilename()}-${id}-${state.series}-${id === 'heatmap' ? `${state.start}-${state.end}` : state.selected}`, widthInches: 7.16, heightInches: id === 'heatmap' ? 5.37 : 3.58 });
+      const source = id === 'weekly-trend' ? sourceForMonth(state.series, selectedRecord().year, state.data.meta.switch_year) : state.series;
+      await exportChart($(id), format, { filename: `flarefront-${state.region.id}${areaFilename()}-${id}-${source}-${id === 'heatmap' ? `${state.start}-${state.end}` : state.selected}`, widthInches: 7.16, heightInches: id === 'heatmap' ? 5.37 : 3.58 });
       if (generation === state.loadGeneration) text('action-status', `${format.toUpperCase()} figure downloaded.`);
     } catch (error) { if (generation === state.loadGeneration) text('action-status', `Figure export failed: ${error.message}`); }
     finally { if (generation === state.loadGeneration) button.disabled = false; }
@@ -267,7 +268,7 @@ function bindControls() {
 function selectMonth(key) {
   if (!state.data) return;
   if (!state.data.months.some((row) => monthKey(row.year, row.month) === key) || key < state.start || key > state.end) {
-    $('selected-month').value = state.selected;
+    monthControls.update();
     return;
   }
   state.selected = key;
@@ -309,11 +310,8 @@ async function render() {
   const selectedPoints = state.points ? pointsInRange(state.points, state.selected, state.selected, state.series, state.data.meta.switch_year) : null;
   const { baseline, difference, percent, partial } = monthlyAnomaly(state.data.months, record, state.series, state.data.meta.switch_year);
   text('selected-title', monthLabel(record));
-  $('selected-month').value = state.selected;
-  $('selected-month').min = state.start;
-  $('selected-month').max = state.end;
-  $('previous-month').disabled = state.selected <= state.start;
-  $('next-month').disabled = state.selected >= state.end;
+  monthControls.update();
+  text('daily-selected-title', monthLabel(record));
   text('count-label', state.series === 'main' ? 'Terra-Equivalent Estimate' : 'Reported Hotspot Detections');
   text('stat-main', format(value));
   text('stat-main-note', state.series === 'main' && source === 'snpp' ? state.data.meta.alpha === null ? 'County calibration unavailable' : state.data.validation.passed ? 'Scaled Suomi-NPP estimate' : 'Experimental · Calibration did not pass' : `${SERIES_NAMES[source]} · unadjusted`);
@@ -331,7 +329,7 @@ async function render() {
   text('map-title', customArea ? 'Selected Area' : 'Hotspot Map');
   text('calendar-description', `${SERIES_NAMES[state.series]}${state.series === 'main' ? state.data.meta.alpha === null ? ' · calibration unavailable' : ` · α = ${state.data.meta.alpha.toFixed(4)}` : ''} · ${units()}. Each cell is one calendar month; gray cells are unavailable. Colors are logarithmic, with fixed bounds for each series and area across date filters.`);
   text('switch-caption', state.series === 'main' ? state.data.meta.alpha === null ? `County calibration is unestimable. Main-series values from ${state.data.meta.switch_year} are withheld; select a raw sensor to inspect observed counts.` : `Source switch in ${state.data.meta.switch_year}: observed Terra counts before the switch; α × Suomi-NPP counts afterward. Retrospective estimates, not incident counts.` : 'Unadjusted qualifying observations. Sensor availability and processing versions vary across the historical record.');
-  text('weekly-description', `${monthLabel(record)} · ${SERIES_NAMES[state.series]}. ${value === null ? 'This source is unavailable for the selected month.' : `Weekly pieces sum to ${format(value)} ${units().toLowerCase()}.`}`);
+  text('weekly-description', `${monthLabel(record)} · ${SERIES_NAMES[source]}. ${record[source] === null ? 'This source is unavailable for the selected month.' : `Weekly totals sum to ${format(record[source])} raw detections, matching the daily calendar.`}`);
   text('map-description', `${monthLabel(record)} · ${SERIES_NAMES[source]} observed detections`);
   $('point-key').style.backgroundColor = colors[source];
   text('point-key-label', `${SERIES_NAMES[source]} Detection`);
@@ -340,6 +338,8 @@ async function render() {
   text('region-scope', customArea ? `Selected area ∩ ${countyName(state.region)}. All charts and CSVs use this intersection. Raw sensor counts only; county calibration does not transfer to this area. Zero means no qualifying detections reported, not an absence of fire.` : 'Historical observations for research, land management and responder planning. Coverage is county-wide; this is not a live warning service. Hotspots are satellite detections, not individual fires.');
   text('download-description', `${countyName(state.region)} · ${areaDescription(state.area)} · ${state.start} through ${state.end} · ${SERIES_NAMES[state.series]}. CSVs include the county and area definition. ${customArea ? 'Counts are raw; no custom-area calibration is fitted.' : 'Point CSV contains observed records; calendar CSV keeps estimates separate.'}`);
   $('download-points').disabled = !state.points;
+  $('download-county-archive').href = `${state.region.data_path}/hotspots.csv.gz`;
+  $('download-county-archive').textContent = `${countyName(state.region)} Archive (CSV.gz)`;
   const years = [...new Set(months.map((row) => row.year))];
   $('calendar-year').replaceChildren(...years.map((year) => { const option = document.createElement('option'); option.value = year; option.textContent = year; return option; }));
   $('calendar-year').value = record.year;
@@ -355,7 +355,7 @@ async function render() {
 async function renderHeatmap(months) {
   const values = months.map((row) => seriesValue(row, state.series));
   const max = Math.max(0, ...state.data.months.map((row) => seriesValue(row, state.series) ?? 0));
-  const ticks = max ? [...[0, 1, 10, 100, 1000].filter((value) => value < max * .8), max] : [0];
+  const ticks = max ? [...[0, 1, 10, 100, 1000].filter((value) => logColorPosition(value, max) < .82), max] : [0];
   const years = [...new Set(months.map((row) => row.year))].sort((a, b) => a - b);
   const shapes = months.map((row, index) => ({ type: 'rect', x0: row.month - .47, x1: row.month + .47, y0: row.year - .43, y1: row.year + .43, fillcolor: fireColor(values[index], max), line: { width: 0 }, layer: 'below' }));
   const record = selectedRecord();
@@ -367,7 +367,7 @@ async function renderHeatmap(months) {
     orientation: 'h', x: .5, xanchor: 'center', y: -.08, yanchor: 'top', len: .9,
     thickness: 14, outlinewidth: .6, outlinecolor: '#444444',
     tickvals: ticks.map((value) => logColorPosition(value, max)), ticktext: ticks.map(format),
-    tickfont: { family: 'Arial', size: 10 },
+    tickfont: { family: 'Arial', size: 10 }, tickangle: 0,
     title: {
       text: `${state.series === 'main' ? 'Terra-Equivalent Detections' : 'Observed Hotspot Detections'}<br>(Logarithmic Color Scale)`,
       side: 'bottom', font: { family: 'Arial', size: 11 },
@@ -393,15 +393,16 @@ async function renderHeatmap(months) {
 }
 
 function renderWeekly(record) {
-  const bins = weeklyBins(state.data.daily, record.year, record.month, state.series);
+  const source = sourceForMonth(state.series, record.year, state.data.meta.switch_year);
+  const bins = weeklyBins(state.data.daily, record.year, record.month, source);
   const layout = chartLayout();
   layout.xaxis.title = { text: 'Week Starting (UTC)', font: { size: 14 } };
   layout.xaxis.type = 'date';
   layout.xaxis.tickformat = '%b %d';
   layout.xaxis.tickvals = bins.map((bin) => bin.week);
-  layout.yaxis.title = { text: state.series === 'main' ? 'Terra-Equivalent Detections' : 'Observed Detections', font: { size: 14 } };
+  layout.yaxis.title = { text: 'Observed Detections', font: { size: 14 } };
   layout.yaxis.rangemode = 'tozero';
-  return Plotly.react($('weekly-trend'), [{ type: 'scatter', mode: 'lines+markers', x: bins.map((bin) => bin.week), y: bins.map((bin) => bin.value), line: { color: colors[state.series], width: 2 }, marker: { color: colors[state.series], size: 6 }, connectgaps: false, hovertemplate: 'Week of %{x|%b %d, %Y}<br>%{y:.2f} detections<extra></extra>' }], layout, chartConfig);
+  return Plotly.react($('weekly-trend'), [{ type: 'scatter', mode: 'lines+markers', x: bins.map((bin) => bin.week), y: bins.map((bin) => bin.value), line: { color: colors[source], width: 2 }, marker: { color: colors[source], size: 6 }, connectgaps: false, hovertemplate: 'Week of %{x|%b %d, %Y}<br>%{y:,.0f} detections<extra></extra>' }], layout, chartConfig);
 }
 
 function renderComparison(months) {

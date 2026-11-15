@@ -10,14 +10,14 @@ test('Given all county months, comparison traces contain every observation and k
   validateStudy(record);
   for (const method of ['raw', 'ratio', 'spatial_ratio', 'selected']) {
     const traces = comparisonTraces(record, method, '3d');
-    assert.equal(traces.length, 8);
-    for (let index = 0; index < 4; index++) {
+    assert.equal(traces.length, record.regions.length * 2);
+    for (let index = 0; index < record.regions.length; index++) {
       assert.deepEqual(traces[index * 2].z, record.regions[index].months.map((row) => row.terra));
       assert.deepEqual(traces[index * 2 + 1].z, record.regions[index].months.map((row) => row[method]));
       assert.equal(traces[index * 2 + 1].x.length, 72);
     }
     const twoDimensional = comparisonTraces(record, method, '2d');
-    assert.equal(twoDimensional.length, 5);
+    assert.equal(twoDimensional.length, record.regions.length + 1);
     assert.deepEqual(twoDimensional[0].x, twoDimensional[0].y);
     assert.deepEqual(twoDimensional[1].y, traces[1].z);
   }
@@ -36,10 +36,13 @@ test('Given invalid or mismatched study metrics, validation fails instead of dis
   assert.throws(() => comparisonTraces(record, 'invented', '3d'), /Unknown/);
 });
 
-test('Given observed regressions, comparison reports higher error and preserves the training-selected method', () => {
-  const rows = comparisonRows(record);
-  assert.deepEqual(rows.map((row) => row.selected), ['ratio', 'ratio', 'ratio', 'ratio']);
-  assert.deepEqual(rows.map((row) => row.difference < 0), [false, true, false, true]);
-  assert.deepEqual(rows.map((row) => row.passes), [true, true, true, false]);
-  assert.ok(rows[0].difference > 2.6 && rows[0].difference < 2.7);
+test('Given a failed or worse comparison, the result remains visible instead of being suppressed', () => {
+  const fixture = structuredClone(record);
+  fixture.regions[0].metrics.ratio.mae = 2;
+  fixture.regions[0].metrics.spatial_ratio.mae = 5;
+  fixture.regions[0].metrics.seasonal.mae = 1;
+  const rows = comparisonRows(fixture);
+  assert.equal(rows[0].difference, 3);
+  assert.equal(rows[0].passes, false);
+  assert.equal(rows[0].selected, fixture.regions[0].selection.selected);
 });

@@ -6,12 +6,12 @@ export function validateRegions(registry) {
   for (const region of registry.regions) {
     if (!/^[a-z]+(?:-[a-z]+)*$/.test(region.id) || ids.has(region.id) ||
         typeof region.city !== 'string' || !region.city.trim() || typeof region.county !== 'string' || !region.county.trim() ||
-        !/^06\d{3}$/.test(region.geoid) || region.data_path !== (region.id === 'los-angeles' ? 'data' : `data/regions/${region.id}`)) {
+        !/^06\d{3}$/.test(region.geoid) || !(region.data_path === `data/regions/${region.id}` || region.id === 'los-angeles' && region.data_path === 'data')) {
       throw new Error('The city registry contains an invalid county or data path.');
     }
     ids.add(region.id);
   }
-  if (!ids.has(registry.default_region) || !ids.has('los-angeles')) throw new Error('The city registry is missing its default or Los Angeles record.');
+  if (!ids.has(registry.default_region)) throw new Error('The city registry is missing its default record.');
   return registry;
 }
 

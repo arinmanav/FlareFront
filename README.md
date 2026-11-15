@@ -1,105 +1,62 @@
 # FlareFront
 
-**Harmonizing MODIS and VIIRS hotspot records across four California counties, with historical calendars, mapped observations and reproducible method comparisons.**
+**Compare MODIS and VIIRS hotspot records on a common reference, then explore when and where detections were reported.**
 
-2001–2025 · 300 months per county · 46,473 qualifying observations · 39 source archives
+[Open FlareFront](https://flarefront.pages.dev/) | 2001-2025 | Five California Counties | 251,426 Qualifying Observations
 
-## A longer view of reported fire activity
+## Five Locations, One Reproducible Comparison
 
-Explore a year-by-month calendar, select a month to inspect its county map and weekly totals, and compare the unadjusted Terra MODIS, Aqua MODIS, and Suomi-NPP VIIRS records. Date and source filters follow through to CSV downloads; chart controls export PNG and SVG figures. The static application bundles its data and browser libraries, with no API key or Python backend.
+Lake, Shasta, Siskiyou, Glenn and Mariposa were selected from all 58 California counties using a fixed training-only screen. Eligible counties need at least 100 Terra detections and 24 positive Terra months during 2013-2019. Forward validation predicts 2016, 2017, 2018 and 2019 using only preceding years. A county must beat both raw VIIRS and a seasonal median baseline; the five lowest normalized errors are shown. There were 41 eligible counties and 39 passers.
 
-The website has two views: **Fire Calendar** and **Compare Locations**. The calendar opens with observed Terra counts, raw VIIRS counts and scaled VIIRS counts, followed by the calendar and map. Methods, sources and downloads expand on demand. Compare Locations provides a rotatable 3D view of month, county and detection count, plus a 2D agreement plot and an error table. Switch between raw counts, count ratio calibration and spatial aggregation. The county-wide records retain their original data and independent coefficients.
+The full [58-county screening record](web/data/location-screen.json) retains every score and exclusion. The [selection protocol](analysis/selection_protocol.json) was fixed before screening; county identities were frozen before the 2020-2025 comparisons were calculated. This selected showcase does not establish agreement across all locations. Later-year results remain exploratory.
 
-**Explore a local area:** choose a county, then select **Draw Area** and click or tap two opposite corners on the map. Alternatively, open **Enter Coordinates**, enter WGS 84 latitude and longitude plus a radius of 0.1–100 km, and apply. The center must be inside the selected county. All results use the intersection with that county; observations outside the four processed counties are unavailable. **Clear Area** restores the county record; **County Extent** changes only the map viewport. Escape cancels drawing.
+| County | Forward-Validation MAE / Mean Terra | 2020-2025 Adjusted MAE | Raw VIIRS MAE | Seasonal MAE |
+| --- | ---: | ---: | ---: | ---: |
+| Lake | 0.173 | 3.213 | 52.736 | 7.403 |
+| Shasta | 0.180 | 5.472 | 158.194 | 18.556 |
+| Siskiyou | 0.189 | 14.655 | 614.653 | 73.333 |
+| Glenn | 0.217 | 7.298 | 159.500 | 21.847 |
+| Mariposa | 0.234 | 2.974 | 61.306 | 10.194 |
 
-Area selections update the calendar, mapped observations, daily, weekly and annual totals, historical comparisons and CSV downloads together. Custom areas show **raw Terra, Aqua and Suomi-NPP counts only**: county coefficients and validation results do not transfer to arbitrary areas. CSVs retain source provenance and add county GEOID, area definition and calibration scope. Empty source periods remain unavailable; available periods without matching observations show zero. Circle filtering uses great-circle distance on a sphere with radius 6,371,008.8 m; rectangles include their boundary. Coordinate entry also supports keyboard use. These historical records support research, land management and responder planning; the site is not a live warning or dispatch service.
+Later-period errors use the same 72 months per county, in detections per month. Lower is better. Count-ratio calibration beats both baselines in all five counties.
 
-**Historical comparisons:** each month shows its arithmetic mean across the same month in other eligible years and an anomaly (selected value minus that mean). The reference uses the full record for the selected county or area and sensor, independent of date filters. Missing values and explicitly incomplete first months of the active source are excluded; observed zeros remain included. Comparisons for a selected incomplete first month are withheld. Percentage anomalies are undefined when the mean is zero. CSV downloads include the mean, included baseline years, signed anomaly and percentage, alongside the earlier median fields.
+![Five-county Terra and calibrated VIIRS comparison](web/figures/harmonization_ratio_3d.png)
 
-The **Values And Anomalies** view provides a numeric alternative to the heatmap, with keyboard-selectable months. **Daily Activity And Trends** includes a day-by-day fire activity calendar with exact raw sensor counts, plus weekly totals. The sequential fire palette decreases in luminance as counts rise; daily cells choose black or white text to meet at least 4.5:1 contrast. Missing cells use a dash and explicit accessible labels. Counts represent satellite hotspot detections, not a verified count of distinct fires; dates with detections are not observing-coverage days.
+## Explore The Record
 
-**Long-Term Patterns** compares monthly means and medians, annual totals with trailing five-year averages, and two years' twelve-month profiles. It uses one raw sensor at a time across the full record: Terra from 2001, Aqua from 2003, or Suomi-NPP from 2013. Only years with twelve available, non-partial monthly values qualify. Observed zeros stay included; missing years break the five-year moving average. Complete records do not establish complete observing coverage. County and custom-area selections both apply; calendar date filters and the harmonized series selector do not change this separate analysis.
+- **Fire Calendar:** the selected month's Terra, raw VIIRS and adjusted VIIRS counts appear in a compact table above the calendar and map. The initial view is August 2020 in Lake County, its largest Terra month in the later comparison period.
+- **Daily Activity And Trends:** its own month picker and Previous/Next buttons update the calendar, map and weekly totals together. Daily and weekly views use the same raw sensor counts, including when the monthly calendar uses a Terra-equivalent estimate.
+- **Long-Term Patterns:** compare monthly means and medians, annual totals with trailing five-year averages, or the twelve-month profiles of any two complete years. One raw sensor is used at a time so the calendar's 2013 source switch does not create a trend.
+- **Compare Locations:** rotate a 3D comparison or inspect a 2D agreement plot. Change between raw VIIRS, count ratio and spatial aggregation, with errors and limitations beside the plots.
 
-The year comparison reports Pearson correlation of monthly counts and [Spearman correlation](https://www.itl.nist.gov/div898/software/dataplot/refman2/ch2/rankcorr.pdf) of their ranks, using average ranks for ties. Constant profiles and self-comparisons have undefined correlations. The all-years summary takes the median Spearman coefficient across unique eligible year pairs; these pairs share years and are not independent replicates. Chart values and all pairwise coefficients are downloadable as CSV with sensor and area metadata. Charts export in the approved 7.16 × 3.58 in format, as 600 dpi PNG and vector SVG.
+Buttons have visible boundaries, keyboard focus and pressed states. Sections expand on demand; numeric calendar values provide a keyboard-accessible alternative to color. Calendar colors follow log(1 + count), using a fixed full-record range per sensor and area. Daily cells retain exact numbers and choose black or white text with at least 4.5:1 contrast.
 
-Terra's 2001–2025 record illustrates why averages and recurrence need separate interpretation:
+**Select an area:** draw a rectangle with two clicks or taps, or enter latitude, longitude and a radius of 0.1-100 km. The center must be inside the selected county; the analysis uses the intersection. Custom areas contain raw sensor counts only. County coefficients and validation do not transfer to an arbitrary shape. Escape cancels drawing; Clear Area restores the county record.
 
-| County | Highest Monthly Mean | Mean Detections | Median For That Month | Median Year-Pair Spearman ρ |
-| --- | --- | ---: | ---: | ---: |
-| Los Angeles | September | 63.64 | 2 | 0.058 |
-| San Diego | October | 77.32 | 0 | 0.042 |
-| Santa Clara | August | 25.72 | 0 | −0.091 |
-| Sacramento | October | 2.56 | 2 | 0.182 |
+CSV downloads follow the selected county, area, month range and sensor. The complete county source tables are also available as losslessly compressed CSV.gz downloads, keeping every Cloudflare asset below 25 MiB. The uncompressed originals remain in this repository. Interactive plots export matching 600 dpi PNG and vector SVG figures using Arial: 7.16 x 5.37 in for calendars and 3D comparisons, 7.16 x 3.58 in for trends and 2D plots.
 
-Each correlation summary contains 300 year pairs. The large mean–median differences show the influence of extreme months, while the near-zero median correlations do not support a consistently repeated annual profile. These are descriptive hotspot statistics, not a fitted climate trend or demonstrated forecasting skill. Computation lives in [patterns.js](web/patterns.js); numerical tests check the four counties against independent Python/SciPy calculations.
+## What Harmonization Means Here
 
-| City | County Coverage | Qualifying Observations | Adjusted MAE | Seasonal MAE | Held-Out Criterion |
-| --- | --- | ---: | ---: | ---: | --- |
-| Los Angeles | Los Angeles | 26,113 | 4.924891 | 18.513889 | Passed |
-| San Diego | San Diego | 10,529 | 2.064945 | 2.555556 | Passed |
-| San Jose | Santa Clara | 7,021 | 0.999082 | 8.666667 | Passed |
-| Sacramento | Sacramento | 2,810 | 1.619257 | 1.583333 | **Did Not Pass** |
+The common calendar uses Terra MODIS through 2012 and a county-specific coefficient multiplied by Suomi-NPP VIIRS from 2013. Each coefficient is the ratio of total Terra to total VIIRS detections during 2013-2019. Satellite locations and raw observations stay unchanged. Evaluation compares later adjusted counts against Terra, raw VIIRS and the training seasonal baseline.
 
-The criterion requires lower monthly MAE against Terra than both unscaled VIIRS and the training seasonal baseline on 2020–2025. Sacramento's adjusted record is explicitly experimental. Additional cities require their own boundary filtering, local fit and held-out evaluation. A county's result does not transfer to another location.
+The spatial experiment groups VIIRS detections into nominal 1 km occupied cells per acquisition group, averages four grid origins, and fits ratio or absolute-error slopes. It does not recreate MODIS pixels or synchronize overpasses. Training selects a spatial absolute-error fit for Lake and a count absolute-error fit for Shasta; the other three retain the ratio. In later years, Lake's selected alternative is worse than the ratio (MAE 3.389 versus 3.213), while Shasta's is slightly better (5.192 versus 5.472). The website calendar retains count-ratio calibration consistently; [all candidate results](web/data/harmonization-study.json) remain available.
 
-![Los Angeles County monthly Terra-equivalent hotspot calendar, 2001–2025](web/figures/monthly_heatmap.png)
+See the [spatial protocol](analysis/spatial_harmonization_protocol.json), [NASA VIIRS product description](https://firms.modaps.eosdis.nasa.gov/content/descriptions/FIRMS_VIIRS_Firehotspots.html), and [Schroeder et al. (2014)](https://doi.org/10.1016/j.rse.2013.12.008).
 
-<table>
-<tr>
-<td width="50%"><img src="web/figures/weekly_january_2025.png" alt="Weekly Terra-equivalent hotspot detections during January 2025"><br><sub>January 2025, split into Monday-start UTC weeks.</sub></td>
-<td width="50%"><img src="web/figures/raw_annual_sensors.png" alt="Annual observed Terra, Aqua, and Suomi-NPP hotspot detections"><br><sub>Unadjusted sensor records; first sensor years may be partial.</sub></td>
-</tr>
-</table>
+## Historical Patterns And Their Limits
 
-Calendar colors use log(1 + count), with the full-record range fixed for each series. Colorbar ticks, hover values, and CSV downloads retain detection counts; no values are clipped.
+Monthly anomalies compare the selected value with the arithmetic mean of the same month in other eligible years. Missing values and explicitly partial first months are excluded; observed zeros remain. The full county or area record supplies the baseline independently of date filters. Percentages are undefined when the baseline is zero.
 
-## Los Angeles calibration results
+Long-term summaries admit only years with twelve reported, non-partial monthly values. Moving averages require five consecutive complete years. Pearson correlation compares monthly counts; [Spearman correlation](https://www.itl.nist.gov/div898/software/dataplot/refman2/ch2/rankcorr.pdf) compares their ranks with average ranks for ties. Constant profiles have undefined correlation. All unique year-pair coefficients are downloadable; pairs share years and are not independent replicates.
 
-Terra MODIS supplies the reference counts. The main calendar uses Terra through 2012, then **α × Suomi-NPP** from 2013. The coefficient is fitted only on 2013–2019 totals: **α = 676 / 5,973 = 0.1131759585**. Evaluation uses all 72 months in the held-out 2020–2025 period.
+For Lake's 2001-2025 Terra record, August has a mean of 66.6 detections but a median of zero. The median year-pair rank correlation is 0.102 across 300 pairs. Extreme seasons strongly affect the average, and a high average does not establish a consistently repeating yearly pattern.
 
-| Series compared against Terra | Monthly mean absolute error |
-| --- | ---: |
-| **Adjusted Suomi-NPP** | **4.924891** |
-| Unscaled Suomi-NPP | 147.805556 |
-| Training-period seasonal median | 18.513889 |
+- Hotspots are **satellite detections, not individual fires**, burned area, severity, forecasts or emergency guidance.
+- Zero means no qualifying detections were reported. Complete monthly records do not establish observing coverage, cloud-free conditions or absence of fire.
+- Counts retain supplied processing labels: MODIS `6.2`, `6.03`, `61.03` and VIIRS CSV version `2`. The archive is not verified as uniform Collection 6.1.
+- Qualification uses the Census 2026 county polygon, type 0, MODIS confidence at least 30 or VIIRS nominal/high confidence. Exact location/date/time/satellite duplicates are removed; distinct overpasses remain separate. Dates are UTC.
 
-The adjusted series passes the predefined aggregate criterion: lower MAE than both baselines on identical evaluation months. It does **not** improve on the seasonal baseline in every year: adjusted MAE is 2.364167 versus 1.166667 in 2022, and 2.009013 versus 1.500000 in 2023. Annual and processing-period comparisons remain visible in the dashboard.
-
-## Spatial Harmonization Comparison
-
-The spatial experiment groups VIIRS points into acquisition groups, counts occupied nominal 1 km grid cells, averages four fixed grid origins, and calibrates monthly occupancy to Terra. It also compares zero-intercept absolute-error fits against the total-ratio fit. This changes the spatial-density feature; it does not recreate MODIS pixels or synchronize satellite overpasses.
-
-| County | Count Ratio MAE | Spatial Ratio MAE | Difference |
-| --- | ---: | ---: | ---: |
-| Los Angeles | 4.924891 | 7.576510 | Higher error |
-| San Diego | 2.064945 | 1.993049 | Lower error |
-| Santa Clara | 0.999082 | 4.216862 | Higher error |
-| Sacramento | 1.619257 | 1.618393 | Lower error |
-
-All rows use the same 72 months in 2020-2025. **No new candidate qualifies to replace the original ratio in any county.** Selection uses only forward validation within 2013-2019 and requires more than 5% lower pooled MAE with no more than 10% higher top-five peak-month MAE. Small later-period gains cannot override that rule. These archive years had already been inspected; this is an exploratory comparison, not independent confirmation.
-
-The [protocol](analysis/spatial_harmonization_protocol.json) fixes the spherical equal-area grid, four origins, 20-minute adjacent acquisition-gap rule, candidate list and selection thresholds. The [complete result](web/data/harmonization-study.json) includes every candidate, source hashes, coefficients, validation folds, monthly values, yearly metrics, bias and peak errors. Raw observations are preserved.
-
-```sh
-python -B -m analysis.build_spatial_harmonization --output web/data/harmonization-study.json
-python -B -m analysis.harmonization_figures --output-dir web/figures
-python -B -m unittest tests.test_spatial_harmonization
-```
-
-VIIRS has finer spatial sampling and greater response to small fires than MODIS. Spatially combining positive detections cannot reproduce the original radiance-based classification, recover cloud masks, or establish observation opportunities. See the [NASA VIIRS product description](https://firms.modaps.eosdis.nasa.gov/content/descriptions/FIRMS_VIIRS_Firehotspots.html) and [Schroeder et al. (2014)](https://doi.org/10.1016/j.rse.2013.12.008). Agreement with Terra is sensor-count agreement, not the true number of fires, burned area or forecasting accuracy.
-
-![Four-county Terra and calibrated VIIRS comparison, 2020–2025](web/figures/harmonization_ratio_3d.png)
-
-Figure downloads follow the selected method and view. The 3D exports use a fixed camera and a 7.16 × 5.37 in canvas; 2D agreement plots use 7.16 × 3.58 in. Each figure has a 600 dpi PNG and a vector SVG, with Arial Regular and no embedded raster layers in the SVG.
-
-## Interpret the record carefully
-
-- These are **hotspot detections, not individual fires**, burned area, severity, forecasts, or emergency guidance. Multiple satellite reports can relate to one fire; fractional Terra-equivalent values are estimates.
-- Zero means no qualifying detections were reported. Missing source periods remain unavailable. Point records do not establish observation coverage, cloud-free conditions, or absence of fire.
-- The record is not verified as uniform Collection 6.1. Supplied MODIS labels `6.2`, `6.03`, and `61.03`, and VIIRS CSV version `2`, are preserved. A single ratio does not model all seasonal, diurnal, coverage, or processing differences.
-- Aqua July 2002 and Suomi-NPP January 2012 are partial first months. Historical medians use the same month in all other available years, excluding the selected year; they are retrospective references.
-
-Qualifying records fall inside or on the full Census 2026 county MultiPolygon, including offshore components, have type 0, and meet MODIS confidence ≥ 30 or VIIRS nominal/high confidence. Exact location/date/time/satellite duplicates are removed; distinct overpasses remain separate. All dates and aggregation use UTC.
+The original Los Angeles, San Diego, Santa Clara and Sacramento pilot datasets remain in the repository for reproduction. Los Angeles reference figures in the downloads section are labeled separately from the current five-county comparison.
 
 ## Run locally
 
@@ -120,28 +77,18 @@ Static asset requests are [free and unlimited](https://developers.cloudflare.com
 
 Python is used for offline preprocessing, validation, and reference figures. Requires **Python 3.12+**, the pinned dependencies in [requirements.txt](requirements.txt), and the original NASA FIRMS annual ZIPs: `modis_2001_all_countries.zip` through `modis_2025_all_countries.zip`, plus `viirs-snpp_2012_all_countries.zip` through `viirs-snpp_2025_all_countries.zip`. Only each archive's `United_States` CSV member is read; originals are unchanged.
 
-Windows PowerShell:
-
-```powershell
-python -m venv .venv
-.venv\Scripts\python -m pip install -r requirements.txt
-.venv\Scripts\python analysis/stage_firms.py --source-dir PATH_TO_ARCHIVES --sensor modis --start-year 2001 --end-year 2025 --output-dir build-data
-.venv\Scripts\python analysis/stage_firms.py --source-dir PATH_TO_ARCHIVES --sensor viirs-snpp --start-year 2012 --end-year 2025 --output-dir build-data
-Copy-Item web/data/county.geojson build-data/los_angeles_county_2026.geojson
-.venv\Scripts\python analysis/build_data.py --input-dir build-data --output-dir web/data
-npm run build
-```
-
-Replace `PATH_TO_ARCHIVES` with the folder containing those ZIPs. On macOS/Linux, use `.venv/bin/python` and `cp`. Filter definitions live in [analysis/config.json](analysis/config.json); the dashboard data preserves source-member names, CRC32 values, version counts, exclusion accounting, and computed metrics.
-
-Rebuild the three additional counties using the bundled Census 2026 boundaries. The script streams each original USA archive member once across their envelopes, fits each county independently and preserves existing Los Angeles outputs:
+To reproduce the county screen and selected datasets from the original archives:
 
 ```sh
-python analysis/build_regions.py --source-dir PATH_TO_ARCHIVES --boundary-root web/data/regions --staging-root build-data/regions --output-root web/data
+python -m analysis.screen_regions --source-dir PATH_TO_ARCHIVES --boundary build-data/california-counties-2026.geojson --download-boundaries --staging-root build-data/location-screen --build-selected
+python -m analysis.build_spatial_harmonization --output web/data/harmonization-study.json
+python -m analysis.harmonization_figures --output-dir web/figures
 npm run build
 ```
 
-The registry in [analysis/regions.json](analysis/regions.json) maps cities to counties and generates the runtime selector. A zero training total leaves calibration unestimable and adjusted values unavailable; raw sensor counts remain accessible. The original reference PNG/SVG files are Los Angeles examples; interactive figure and CSV exports use the selected county.
+The screening report records the exact boundary hash, source-member names, archive CRCs, qualification counts, fold coefficients and selection rule. The original boundary snapshot is Census January 1, 2026; the live Census endpoint can change, so retain the downloaded boundary file when reproducing a release. Filter definitions live in [analysis/config.json](analysis/config.json). Original ZIPs are never modified.
+
+For an already selected registry, `python analysis/build_regions.py --source-dir PATH_TO_ARCHIVES --boundary-root web/data/regions --staging-root build-data/regions --output-root web/data` rebuilds its records using bundled polygons. It does not rerun selection. The original Los Angeles reference can still be rebuilt with `analysis/stage_firms.py` and `analysis/build_data.py`.
 
 ### Calibration Benchmarks
 
@@ -154,7 +101,7 @@ python -m unittest tests.test_harmonization_benchmark
 
 The command reads bundled county records and writes `report.json`, `summary.csv` and `predictions.csv` outside runtime data. Outputs include every candidate, failed fits, source hashes, fitted parameters, validation folds, monthly errors, bias and peak diagnostics. Solar time is approximated from acquisition time and longitude; it does not establish illumination quality or simultaneous observations. Poisson models estimate conditional mean counts and provide no probabilistic uncertainty claim for these overdispersed data.
 
-On the bundled record, training-only selection retains the original ratio in San Diego, Santa Clara and Sacramento. It selects a solar-period adjustment in Los Angeles, whose later-period MAE increases from 4.924891 to 5.142033. These experiments therefore do not replace the website calibration. Selecting a different candidate because it looks best on the already-inspected benchmark would require a new independent evaluation.
+On the original four-county pilot, training-only selection retained the original ratio in San Diego, Santa Clara and Sacramento. It selected a solar-period adjustment in Los Angeles, whose later-period MAE increases from 4.924891 to 5.142033. These experiments therefore do not replace the website calibration. Selecting a different candidate because it looks best on the already-inspected benchmark would require a new independent evaluation.
 
 ```powershell
 npm test

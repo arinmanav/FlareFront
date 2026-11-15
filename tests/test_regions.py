@@ -15,6 +15,13 @@ from analysis.build_data import apply_main_series, build, calibrate, load_config
 from analysis.build_regions import build_regions, load_regions
 from analysis.stage_firms import inspect_region_archives
 
+PILOT_REGISTRY = {'schema_version': 1, 'default_region': 'los-angeles', 'regions': [
+    {'id': 'los-angeles', 'city': 'Los Angeles', 'county': 'Los Angeles County', 'geoid': '06037', 'data_path': '.'},
+    {'id': 'san-diego', 'city': 'San Diego', 'county': 'San Diego County', 'geoid': '06073', 'data_path': 'regions/san-diego'},
+    {'id': 'san-jose', 'city': 'San Jose', 'county': 'Santa Clara County', 'geoid': '06085', 'data_path': 'regions/san-jose'},
+    {'id': 'sacramento', 'city': 'Sacramento', 'county': 'Sacramento County', 'geoid': '06067', 'data_path': 'regions/sacramento'},
+]}
+
 
 def archive(directory, product="modis", year=2013, coordinates=(0.5,1,1.5,3)):
     fields = ["latitude", "longitude", "acq_date", "acq_time", "satellite", "instrument", "confidence", "version",
@@ -136,12 +143,12 @@ class RegionTests(unittest.TestCase):
             self.assertTrue(all(row["main"] is None for row in result["months"]))
 
     def test_registry(self):
-        """Given the four-city registry, when loaded, then keep county names explicit and LA at its original path."""
+        """Given the selected registry, retain its frozen rank order and explicit county coverage."""
         registry = load_regions()
         self.assertEqual([region["id"] for region in registry["regions"]],
-            ["los-angeles","san-diego","san-jose","sacramento"])
-        self.assertEqual(registry["regions"][0]["data_path"],".")
-        self.assertEqual(registry["regions"][2]["county"],"Santa Clara County")
+            ["lake","shasta","siskiyou","glenn","mariposa"])
+        self.assertEqual(registry["default_region"],"lake")
+        self.assertTrue(all(region['county'].endswith(' County') and region['data_path'] == 'regions/' + region['id'] for region in registry['regions']))
 
     def test_orchestrator_preserves_la(self):
         """Given three synthetic county inputs, when built together, then read four ZIPs and leave LA bytes unchanged."""
@@ -150,14 +157,14 @@ class RegionTests(unittest.TestCase):
             for product in ("modis", "viirs-snpp"):
                 for year in (2013,2014):
                     archive(directory,product,year,[0.5])
-            for region in load_regions()["regions"][1:]:
+            for region in PILOT_REGISTRY["regions"][1:]:
                 destination = directory/"boundaries"/region["id"]
                 destination.mkdir(parents=True)
                 boundary(destination/"county.geojson",region["geoid"])
             output = directory/"output"
             output.mkdir()
             (output/"dashboard.json").write_bytes(b"existing LA fixture")
-            with redirect_stdout(io.StringIO()), patch("analysis.stage_firms.ZipFile",wraps=ZipFile) as opened:
+            with redirect_stdout(io.StringIO()), patch("analysis.stage_firms.ZipFile",wraps=ZipFile) as opened, patch("analysis.build_regions.load_regions", return_value=PILOT_REGISTRY):
                 results = build_regions(directory,directory/"boundaries",directory/"staging",output,config=short_config())
             self.assertEqual(opened.call_count,4)
             self.assertEqual(set(results),{"san-diego","san-jose","sacramento"})

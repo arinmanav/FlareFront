@@ -31,7 +31,7 @@ export function renderHarmonizationExample(data, row) {
     : 'The main calendar uses the adjusted VIIRS value. Map points remain the original observations; hotspots are not individual fires.';
   const { validation } = data;
   element('example-validation').textContent = result.alpha === null ? 'County Calibration Unavailable'
-    : validation.passed ? 'County Calibration Passed The Held-Out Test' : 'County Calibration Did Not Pass · Experimental';
+    : validation.passed ? 'Lower Later-Period Error Than Both Baselines' : 'County Calibration Did Not Pass · Experimental';
   element('example-validation').classList.toggle('passed', validation.passed === true);
 }
 

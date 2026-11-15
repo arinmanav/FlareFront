@@ -159,6 +159,15 @@ def build():
     registry = json.loads(registry_path.read_bytes())
     report = {'schema_version': 1, 'protocol': protocol, 'protocol_sha256': sha256(protocol_bytes).hexdigest(),
               'numpy_version': np.__version__, 'inputs': [], 'regions': []}
+    screen_path = ROOT / 'web/data/location-screen.json'
+    if screen_path.exists():
+        screen_bytes = screen_path.read_bytes()
+        screen = json.loads(screen_bytes)
+        if [region['id'] for region in registry['regions']] != [region['id'] for region in screen['selected']]:
+            raise ValueError('County registry differs from the frozen training-only location selection')
+        report['location_selection'] = {'path': 'data/location-screen.json',
+            'sha256': sha256(screen_bytes).hexdigest(), 'protocol_sha256': screen['protocol_sha256'],
+            'status': screen['status'], 'limitations': screen['protocol']['limitations']}
     for region in registry['regions']:
         payloads = {}
         for name in ('dashboard', 'points'):

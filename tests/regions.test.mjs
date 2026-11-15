@@ -17,6 +17,12 @@ test('The registry permits only the original LA path and matching local county d
   assert.throws(() => validateRegions(duplicate));
 });
 
+test('A county selection may use a different default without retaining the original pilot in navigation', () => {
+  const data = registry(); data.regions = [data.regions[1]]; data.default_region = 'san-diego';
+  assert.equal(validateRegions(data).default_region, 'san-diego');
+  data.default_region = 'missing'; assert.throws(() => validateRegions(data), /default record/);
+});
+
 test('A city URL selects only a registered county and preserves the default for unknown or malicious values', () => {
   const data = validateRegions(registry());
   assert.equal(regionFromSearch(data, '?region=san-diego').geoid, '06073');

@@ -1,4 +1,5 @@
-import { cp, lstat, mkdir, readdir, readFile, realpath, rm, stat } from 'node:fs/promises';
+import { cp, lstat, mkdir, readdir, readFile, realpath, rm, stat, writeFile } from 'node:fs/promises';
+import { gzipSync } from 'node:zlib';
 import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateRegions, validateRegionalDashboard } from '../web/regions.js';
@@ -6,7 +7,7 @@ import { validateRegions, validateRegionalDashboard } from '../web/regions.js';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const source = join(root, 'web');
 const destination = resolve(root, 'dist');
-const runtimeFiles = ['index.html', 'styles.css', 'app.js', 'calendar.js', 'exports.js', 'harmonization.js', 'comparison.js', 'regions.js', 'area.js', 'area-controls.js', 'fire-colors.js', 'history-view.js', 'patterns.js', 'patterns-view.js'];
+const runtimeFiles = ['index.html', 'styles.css', 'app.js', 'calendar.js', 'exports.js', 'harmonization.js', 'comparison.js', 'regions.js', 'area.js', 'area-controls.js', 'fire-colors.js', 'history-view.js', 'patterns.js', 'patterns-view.js', 'month-controls.js'];
 const runtimeDirectories = ['assets', 'data', 'vendor', 'figures'];
 const notices = ['LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES'];
 const requiredData = ['dashboard.json', 'points.json', 'county.geojson', 'hotspots.csv', 'calendar.csv', 'regions.json', 'harmonization-study.json'];
@@ -54,9 +55,12 @@ async function build() {
   await mkdir(destination, { recursive: true });
   for (const name of runtimeFiles) await cp(join(source, name), join(destination, name));
   for (const directory of runtimeDirectories) for (const name of directoryFiles.get(directory)) {
-    const target = join(destination, directory, name);
+    const compressedArchive = directory === 'data' && basename(name) === 'hotspots.csv';
+    const target = join(destination, directory, name + (compressedArchive ? '.gz' : ''));
     await mkdir(dirname(target), { recursive: true });
-    await cp(join(source, directory, name), target);
+    if (compressedArchive) await writeFile(target, gzipSync(await readFile(join(source, directory, name)), { level: 9 }));
+    else await cp(join(source, directory, name), target);
+    if ((await stat(target)).size > 25 * 1024 * 1024) throw new Error(`Runtime asset exceeds Cloudflare Pages' 25 MiB limit: ${directory}/${name}`);
   }
   for (const name of notices) await cp(join(root, name), join(destination, name));
   const dashboard = JSON.parse(await readFile(join(destination, 'data/dashboard.json'), 'utf8'));

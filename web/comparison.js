@@ -1,13 +1,13 @@
 const METHODS = ['raw', 'ratio', 'lad', 'spatial_ratio', 'spatial_lad', 'selected', 'seasonal'];
 const LABELS = { raw: 'Raw VIIRS', ratio: 'Count ratio', lad: 'Absolute-error fit', spatial_ratio: 'Spatial aggregation', spatial_lad: 'Spatial absolute-error fit', selected: 'Training-selected method', seasonal: 'Seasonal baseline' };
-const COLORS = ['#275b91', '#bb5723', '#55755e', '#7c5d8d'];
+const COLORS = ['#275b91', '#bb5723', '#55755e', '#7c5d8d', '#a57b24'];
 const number = new Intl.NumberFormat('en-US', { maximumFractionDigits: 3 });
 const finiteCount = (value) => Number.isFinite(value) && value >= 0;
 const close = (a, b) => Math.abs(a - b) <= 1e-8 * Math.max(1, Math.abs(b));
 
 export function validateStudy(study) {
   if (study?.schema_version !== 1 || study.protocol?.reference !== 'terra' || study.protocol?.source !== 'snpp'
-      || !Array.isArray(study.regions) || study.regions.length !== 4) throw new Error('Four county records and a Terra reference are required.');
+      || !Array.isArray(study.regions) || study.regions.length < 1 || study.regions.length > 5) throw new Error('One to five county records and a Terra reference are required.');
   const expected = [];
   for (let year = study.protocol.benchmark_start; year <= study.protocol.benchmark_end; year++) {
     for (let month = 1; month <= 12; month++) expected.push(`${year}-${String(month).padStart(2, '0')}-01`);
@@ -54,7 +54,7 @@ export function comparisonTraces(study, method, view) {
     ...study.regions.map((region, index) => ({ type: 'scatter', mode: 'markers', name: region.county.replace(' County', ''),
       x: region.months.map((row) => row.terra), y: region.months.map((row) => row[method]),
       customdata: region.months.map((row) => [row.date.slice(0, 7), region.county]),
-      marker: { color: COLORS[index], size: 6, opacity: .8, symbol: ['circle', 'square', 'diamond', 'triangle-up'][index] },
+      marker: { color: COLORS[index], size: 6, opacity: .8, symbol: ['circle', 'square', 'diamond', 'triangle-up', 'triangle-down'][index] },
       hovertemplate: '%{customdata[1]} · %{customdata[0]}<br>Terra: %{x:,.0f}<br>VIIRS comparison: %{y:,.2f}<extra></extra>',
     }))];
   }
@@ -75,7 +75,7 @@ function renderResults(study) {
   const improved = rows.filter((row) => row.difference < 0).length;
   const summary = document.getElementById('study-summary');
   const conclusion = document.createElement('p');
-  conclusion.textContent = `Spatial aggregation has lower later-period error in ${improved} of four counties. Training-period validation retains the original count ratio in ${retained} of four. The new method does not establish a consistent improvement.`;
+  conclusion.textContent = `Spatial aggregation has lower later-period error in ${improved} of ${rows.length} counties. Training-period validation retains the original count ratio in ${retained} of ${rows.length}. Method and location selection are separate evaluations.`;
   const limitation = document.createElement('p');
   const failed = rows.filter((row) => !row.passes).map((row) => row.county).join(', ');
   limitation.textContent = `The count ratio beats raw VIIRS and the seasonal baseline in ${rows.filter((row) => row.passes).length} counties.${failed ? ` ${failed} does not pass that comparison.` : ''} These are sensor-count comparisons, not a measure of how many fires occurred.`;
@@ -121,7 +121,7 @@ export async function initializeComparison() {
         layout.scene = { bgcolor: '#ffffff', dragmode: 'orbit', aspectmode: 'manual', aspectratio: { x: 1.8, y: 1.2, z: .85 },
           camera: { eye: window.innerWidth < 600 ? { x: 2.4, y: -2.6, z: 1.7 } : { x: 1.55, y: -1.8, z: 1.25 }, center: { x: 0, y: 0, z: -.3 } },
           xaxis: { ...axis, title: { text: 'Month (UTC)' }, range: [0, 71], tickvals: [0, 12, 24, 36, 48, 60, 71], ticktext: ['2020', '2021', '2022', '2023', '2024', '2025', 'Dec 2025'], showbackground: false },
-          yaxis: { ...axis, title: { text: 'County' }, range: [-.2, 3.2], tickvals: [0, 1, 2, 3], ticktext: study.regions.map((region) => region.county.replace(' County', '')), showbackground: false },
+          yaxis: { ...axis, title: { text: 'County' }, range: [-.2, study.regions.length - .8], tickvals: study.regions.map((_region, index) => index), ticktext: study.regions.map((region) => region.county.replace(' County', '')), showbackground: false },
           zaxis: { ...axis, title: { text: 'Detections' }, showbackground: false },
         };
       } else {

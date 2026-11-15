@@ -65,7 +65,7 @@ test('Published UI exposes the specified comparison controls and preserves the c
   assert.match(html, /id="calendar-tab"[^>]*>Fire Calendar<\/button>/);
   assert.match(html, /id="comparison-tab"[^>]*aria-controls="comparison-view"[^>]*>Compare Locations<\/button>/);
   assert.match(html, /<h1>MODIS And VIIRS Harmonization<\/h1>/);
-  assert.match(html, /<h1>Harmonization Across Four Counties<\/h1>/);
+  assert.match(html, /<h1>Harmonization Across Five Counties<\/h1>/);
   assert.match(html, /id="comparison-status"[^>]*role="status"/);
   const method = html.match(/<select id="study-method"[^>]*>(.*?)<\/select>/s)[1];
   assert.deepEqual([...method.matchAll(/value="([^"]+)"/g)].map((match) => match[1]), ['raw', 'ratio', 'spatial_ratio']);
