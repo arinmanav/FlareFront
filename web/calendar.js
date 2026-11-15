@@ -60,6 +60,35 @@ export function historicalMedian(months, selected, series) {
   return { value: values.length ? (values.length % 2 ? values[middle] : (values[middle - 1] + values[middle]) / 2) : null, count: values.length };
 }
 
+function isPartialMonth(row, series, switchYear) {
+  const source = sourceForMonth(series, row.year, switchYear);
+  return row.availability?.[source]?.startsWith('partial_first_month') === true;
+}
+
+export function historicalAverage(months, selected, series, switchYear = 2013) {
+  const peers = months.filter((row) => row.month === selected.month && row.year !== selected.year
+    && seriesValue(row, series) !== null && !isPartialMonth(row, series, switchYear));
+  const years = peers.map((row) => row.year).sort((a, b) => a - b);
+  return { value: peers.length ? peers.reduce((sum, row) => sum + row[series], 0) / peers.length : null, count: peers.length, years };
+}
+
+export function monthlyAnomaly(months, selected, series, switchYear = 2013) {
+  const baseline = historicalAverage(months, selected, series, switchYear);
+  const value = seriesValue(selected, series);
+  const partial = isPartialMonth(selected, series, switchYear);
+  const difference = value === null || baseline.value === null || partial ? null : value - baseline.value;
+  return { baseline, difference, percent: difference !== null && baseline.value > 0 ? difference / baseline.value * 100 : null, partial };
+}
+
+export function dailyActivity(daily, year, month, source) {
+  const byDate = new Map(daily.map((row) => [row.date, row]));
+  const days = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  return Array.from({ length: days }, (_, index) => {
+    const day = index + 1, date = `${monthKey(year, month)}-${String(day).padStart(2, '0')}`;
+    return { date, day, weekday: (new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7, value: seriesValue(byDate.get(date), source) };
+  });
+}
+
 export function annualRawCounts(months) {
   const years = new Map();
   for (const month of months) {

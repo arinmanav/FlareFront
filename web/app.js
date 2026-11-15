@@ -1,10 +1,12 @@
-import { MONTH_NAMES, SERIES_NAMES, monthKey, monthsInRange, seriesValue, sourceForMonth, pointsInRange, weeklyBins, historicalMedian, annualRawCounts, logColorPosition } from './calendar.js';
+import { MONTH_NAMES, SERIES_NAMES, monthKey, monthsInRange, seriesValue, sourceForMonth, pointsInRange, weeklyBins, historicalMedian, monthlyAnomaly, annualRawCounts, logColorPosition } from './calendar.js';
 import { downloadCsv, exportChart } from './exports.js';
 import { initializeComparison } from './comparison.js';
 import { initializeHarmonization, renderHarmonizationExample } from './harmonization.js';
 import { validateRegions, regionFromSearch, validateRegionalDashboard, createRegionLoader } from './regions.js';
 import { subsetRecord, areaDescription } from './area.js';
 import { createAreaControls } from './area-controls.js';
+import { FIRE_RAMP, fireColor } from './fire-colors.js';
+import { historyNumber, signedNumber, renderCalendarValues, renderDailyCalendar } from './history-view.js';
 
 const state = {
   series: 'main', start: '2001-01', end: '2025-12', selected: '2025-01',
@@ -16,7 +18,6 @@ const state = {
 const $ = (id) => document.getElementById(id);
 const number = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 });
 const colors = { terra: '#426c99', aqua: '#22867d', snpp: '#df6b25', main: '#b95320' };
-const calendarColors = ['#fcf1dc', '#f4c690', '#e79249', '#cc5b21', '#73321b'];
 const chartConfig = { responsive: true, displayModeBar: false, scrollZoom: false, locale: 'en-US' };
 const units = () => state.series === 'main' ? 'Terra-equivalent detections' : 'Observed hotspot detections';
 const format = (value) => value === null || value === undefined ? 'Unavailable' : number.format(value);
@@ -189,6 +190,12 @@ async function initialize() {
 }
 
 function bindControls() {
+  $('calendar-mode').addEventListener('change', updateCalendarView);
+  $('calendar-year').addEventListener('change', () => {
+    const months = filteredMonths().filter((row) => row.year === Number($('calendar-year').value));
+    const row = months.find((row) => row.month === selectedRecord().month) ?? months[0];
+    if (row) selectMonth(monthKey(row.year, row.month));
+  });
   $('map-extent').addEventListener('click', () => {
     if (state.map && state.countyBounds) state.map.fitBounds(state.countyBounds, { padding: [14, 14], animate: false });
   });
@@ -228,9 +235,10 @@ function bindControls() {
     const rows = months.map((row) => {
       const value = seriesValue(row, state.series);
       const baseline = state.series === 'main' ? { value: row.median, count: row.baseline_n } : historicalMedian(state.data.months, row, state.series);
-      return [monthKey(row.year, row.month), state.series, value, sourceForMonth(state.series, row.year, state.data.meta.switch_year), units(), baseline.value, baseline.count, value === null || baseline.value === null ? null : value - baseline.value, row.terra, row.aqua, row.snpp, row.main, ...areaExportFields()];
+      const anomaly = monthlyAnomaly(state.data.months, row, state.series, state.data.meta.switch_year);
+      return [monthKey(row.year, row.month), state.series, value, sourceForMonth(state.series, row.year, state.data.meta.switch_year), units(), baseline.value, baseline.count, value === null || baseline.value === null ? null : value - baseline.value, row.terra, row.aqua, row.snpp, row.main, ...areaExportFields(), anomaly.baseline.value, anomaly.baseline.count, anomaly.baseline.years.join(';'), anomaly.difference, anomaly.percent, anomaly.partial];
     });
-    downloadCsv(`flarefront-${state.region.id}${areaFilename()}-calendar-${state.series}-${state.start}-${state.end}.csv`, ['month', 'selected_series', 'selected_value', 'selected_source', 'selected_units', 'historical_median', 'baseline_years', 'difference_from_median', 'terra_observed', 'aqua_observed', 'snpp_observed', 'main_terra_equivalent', ...areaExportHeaders], rows);
+    downloadCsv(`flarefront-${state.region.id}${areaFilename()}-calendar-${state.series}-${state.start}-${state.end}.csv`, ['month', 'selected_series', 'selected_value', 'selected_source', 'selected_units', 'historical_median', 'baseline_years', 'difference_from_median', 'terra_observed', 'aqua_observed', 'snpp_observed', 'main_terra_equivalent', ...areaExportHeaders, 'historical_mean', 'mean_baseline_n', 'mean_baseline_years', 'difference_from_mean', 'percent_from_mean', 'partial_source_month'], rows);
     text('action-status', `Downloaded ${rows.length} calendar months. Empty values indicate unavailable source periods.`);
   });
   document.querySelectorAll('[data-export]').forEach((button) => button.addEventListener('click', async () => {
@@ -264,6 +272,14 @@ function shiftMonth(amount) {
   selectMonth(date.toISOString().slice(0, 7));
 }
 
+function updateCalendarView() {
+  const values = $('calendar-mode').value === 'values';
+  $('heatmap').hidden = values;
+  $('calendar-scale').hidden = values;
+  $('values-view').hidden = !values;
+  if (!values) requestAnimationFrame(resizeVisibleCharts);
+}
+
 async function render() {
   if (!state.data) return;
   const record = selectedRecord();
@@ -283,27 +299,27 @@ async function render() {
   const value = seriesValue(record, state.series);
   const source = sourceForMonth(state.series, record.year, state.data.meta.switch_year);
   const selectedPoints = state.points ? pointsInRange(state.points, state.selected, state.selected, state.series, state.data.meta.switch_year) : null;
-  const baseline = state.series === 'main' ? { value: record.median, count: record.baseline_n } : historicalMedian(state.data.months, record, state.series);
-  const difference = value === null || baseline.value === null || baseline.value === undefined ? null : value - baseline.value;
+  const { baseline, difference, percent, partial } = monthlyAnomaly(state.data.months, record, state.series, state.data.meta.switch_year);
   text('selected-title', monthLabel(record));
   $('selected-month').value = state.selected;
   $('selected-month').min = state.start;
   $('selected-month').max = state.end;
   $('previous-month').disabled = state.selected <= state.start;
   $('next-month').disabled = state.selected >= state.end;
-  text('count-label', state.series === 'main' ? 'Terra-Equivalent Detections' : 'Observed Hotspot Detections');
+  text('count-label', state.series === 'main' ? 'Terra-Equivalent Estimate' : 'Reported Hotspot Detections');
   text('stat-main', format(value));
   text('stat-main-note', state.series === 'main' && source === 'snpp' ? state.data.meta.alpha === null ? 'County calibration unavailable' : state.data.validation.passed ? 'Scaled Suomi-NPP estimate' : 'Experimental · Calibration did not pass' : `${SERIES_NAMES[source]} · unadjusted`);
-  text('stat-points', value === null ? 'Unavailable' : selectedPoints === null ? 'Unavailable' : number.format(selectedPoints.length));
-  text('stat-points-note', `${SERIES_NAMES[source]} · observed records`);
-  text('stat-median', format(baseline.value));
-  text('stat-median-note', `${baseline.count ?? 0} other years · full historical record`);
-  text('stat-change', difference === null ? 'Unavailable' : `${difference > 0 ? '+' : difference < 0 ? '−' : ''}${format(Math.abs(difference))}`);
-  text('stat-change-note', `Signed difference · ${units().toLowerCase()}`);
-  for (const id of ['stat-main', 'stat-points', 'stat-median', 'stat-change']) {
+  text('stat-points', format(record[source]));
+  text('stat-points-note', `${SERIES_NAMES[source]} observations`);
+  text('stat-average', historyNumber(baseline.value));
+  text('stat-average-note', baseline.count ? `${baseline.count} other years · ${baseline.years[0]}–${baseline.years.at(-1)}` : 'No eligible comparison years');
+  text('stat-change', signedNumber(difference));
+  text('stat-change-note', partial ? 'Incomplete first month; comparison withheld' : difference === null ? 'Comparison unavailable' : `${difference > 0 ? 'Above' : difference < 0 ? 'Below' : 'At'} the same-month average${percent === null ? ' · Percentage undefined when average is zero' : ` · ${signedNumber(percent)}%`}`);
+  text('history-caption', `Average = arithmetic mean of the same month in other years, using the full record for this ${customArea ? 'area' : 'county'} and series. Missing and explicitly incomplete first months are excluded. Anomalies use ${units().toLowerCase()}; they describe the historical record, not a forecast.`);
+  for (const id of ['stat-main', 'stat-points', 'stat-average', 'stat-change']) {
     $(id).classList.toggle('unavailable', $(id).textContent === 'Unavailable');
   }
-  text('calendar-title', customArea ? 'Area Calendar' : 'Monthly Calendar');
+  text('calendar-title', customArea ? 'Area Fire Calendar' : 'Fire Activity Calendar');
   text('map-title', customArea ? 'Selected Area' : 'Hotspot Map');
   text('calendar-description', `${SERIES_NAMES[state.series]}${state.series === 'main' ? state.data.meta.alpha === null ? ' · calibration unavailable' : ` · α = ${state.data.meta.alpha.toFixed(4)}` : ''} · ${units()}. Each cell is one calendar month; gray cells are unavailable. Colors are logarithmic, with fixed bounds for each series and area across date filters.`);
   text('switch-caption', state.series === 'main' ? state.data.meta.alpha === null ? `County calibration is unestimable. Main-series values from ${state.data.meta.switch_year} are withheld; select a raw sensor to inspect observed counts.` : `Source switch in ${state.data.meta.switch_year}: observed Terra counts before the switch; α × Suomi-NPP counts afterward. Retrospective estimates, not incident counts.` : 'Unadjusted qualifying observations. Sensor availability and processing versions vary across the historical record.');
@@ -316,18 +332,16 @@ async function render() {
   text('region-scope', customArea ? `Selected area ∩ ${countyName(state.region)}. All charts and CSVs use this intersection. Raw sensor counts only; county calibration does not transfer to this area. Zero means no qualifying detections reported, not an absence of fire.` : 'Historical observations for research, land management and responder planning. Coverage is county-wide; this is not a live warning service. Hotspots are satellite detections, not individual fires.');
   text('download-description', `${countyName(state.region)} · ${areaDescription(state.area)} · ${state.start} through ${state.end} · ${SERIES_NAMES[state.series]}. CSVs include the county and area definition. ${customArea ? 'Counts are raw; no custom-area calibration is fitted.' : 'Point CSV contains observed records; calendar CSV keeps estimates separate.'}`);
   $('download-points').disabled = !state.points;
+  const years = [...new Set(months.map((row) => row.year))];
+  $('calendar-year').replaceChildren(...years.map((year) => { const option = document.createElement('option'); option.value = year; option.textContent = year; return option; }));
+  $('calendar-year').value = record.year;
+  renderCalendarValues($('calendar-values'), { data: state.data, months, series: state.series, selected: record, onSelect: selectMonth });
+  updateCalendarView();
+  const days = renderDailyCalendar($('daily-calendar'), state.data, record, state.series);
+  text('daily-description', `${days.detectionDays} UTC ${days.detectionDays === 1 ? 'date' : 'dates'} with reported detections · ${days.totalDays - days.availableDays} source dates unavailable. Observing coverage is unverified. Counts are raw, including when the monthly calendar shows Terra-equivalent estimates.`);
   renderPeaks(months);
   renderMap(value === null ? [] : selectedPoints ?? []);
   await Promise.all([renderHeatmap(months), renderWeekly(record), renderComparison(months)]);
-}
-
-function cellColor(value, max) {
-  if (value === null) return '#e5e7e1';
-  const stops = [[252,241,220], [244,198,144], [231,146,73], [204,91,33], [115,50,27]];
-  const position = logColorPosition(value, max) * (stops.length - 1);
-  const low = Math.min(Math.floor(position), stops.length - 2);
-  const fraction = position - low;
-  return `rgb(${stops[low].map((channel, index) => Math.round(channel + (stops[low + 1][index] - channel) * fraction)).join(',')})`;
 }
 
 async function renderHeatmap(months) {
@@ -335,7 +349,7 @@ async function renderHeatmap(months) {
   const max = Math.max(0, ...state.data.months.map((row) => seriesValue(row, state.series) ?? 0));
   const ticks = max ? [...[0, 1, 10, 100, 1000].filter((value) => value < max * .8), max] : [0];
   const years = [...new Set(months.map((row) => row.year))].sort((a, b) => a - b);
-  const shapes = months.map((row, index) => ({ type: 'rect', x0: row.month - .47, x1: row.month + .47, y0: row.year - .43, y1: row.year + .43, fillcolor: cellColor(values[index], max), line: { width: 0 }, layer: 'below' }));
+  const shapes = months.map((row, index) => ({ type: 'rect', x0: row.month - .47, x1: row.month + .47, y0: row.year - .43, y1: row.year + .43, fillcolor: fireColor(values[index], max), line: { width: 0 }, layer: 'below' }));
   const record = selectedRecord();
   shapes.push({ type: 'rect', x0: record.month - .49, x1: record.month + .49, y0: record.year - .46, y1: record.year + .46, fillcolor: 'rgba(0,0,0,0)', line: { color: '#20251f', width: 1.6 }, layer: 'above' });
   const layout = chartLayout({ margin: { l: 58, r: 23, t: 28, b: 95 }, shapes });
@@ -354,13 +368,13 @@ async function renderHeatmap(months) {
   await Plotly.react($('heatmap'), [
     {
       type: 'scatter', mode: 'markers', x: months.map((row) => row.month), y: months.map((row) => row.year),
-      customdata: months.map((row, index) => [monthKey(row.year, row.month), `${monthLabel(row)}<br>${format(values[index])} ${units().toLowerCase()}`]),
+      customdata: months.map((row, index) => { const anomaly = monthlyAnomaly(state.data.months, row, state.series, state.data.meta.switch_year); return [monthKey(row.year, row.month), `${monthLabel(row)}<br>${format(values[index])} ${units().toLowerCase()}<br>Same-month average: ${historyNumber(anomaly.baseline.value)} (${anomaly.baseline.count} years)<br>Anomaly: ${signedNumber(anomaly.difference)}`]; }),
       marker: { symbol: 'square', size: 24, color: 'rgba(0,0,0,0)' }, hovertemplate: '%{customdata[1]}<extra></extra>',
     },
     {
       type: 'scatter', mode: 'markers', x: [1, 1], y: [years[0], years[0]],
       marker: { size: 0, opacity: 0, color: [0, 1], cmin: 0, cmax: 1,
-        colorscale: calendarColors.map((color, index) => [index / 4, color]), showscale: true, colorbar },
+        colorscale: FIRE_RAMP.map((color, index) => [index / (FIRE_RAMP.length - 1), color]), showscale: true, colorbar },
       hoverinfo: 'skip', showlegend: false,
     },
   ], layout, chartConfig);
@@ -480,7 +494,7 @@ function renderMethods() {
   text('footer-region', `${countyName(state.region)} · Historical Hotspot Harmonization`);
   text('county-measurement', `Qualifying hotspot detections inside the full ${countyName(state.region)} boundary. Type 0 records qualify at MODIS confidence ≥ 30 or Suomi-NPP nominal/high confidence. Exact repeated location/date/time/satellite keys are removed; separate overpasses remain separate observations.`);
   text('calibration-description', meta.alpha === null ? `Terra MODIS is the reference. ${validation.reason ?? 'The county overlap cannot support a scale factor.'} Main-series values from ${meta.switch_year} are withheld. Raw sensor counts remain available.` : `Terra MODIS is the reference. The main calendar uses observed Terra counts through ${meta.switch_year - 1}, then α × Suomi-NPP counts from ${meta.switch_year}. County-specific α = ${meta.alpha.toFixed(6)} is fitted once as the ratio of summed Terra to Suomi-NPP training counts in ${validation.training.start_year}–${validation.training.end_year}. Aqua remains a separate raw comparison.`);
-  text('baseline-description', 'The historical median uses the same calendar month in every other available year across the full record, excluding the selected year, for both main and raw series. Date filters do not change this reference. These retrospective medians are not forecasts.');
+  text('baseline-description', 'The historical average is the arithmetic mean of the same calendar month in every other eligible year across the full record. Missing values and explicitly incomplete first months of the active source are excluded; zero observations remain included. A selected incomplete first month has no anomaly. Differences use the selected series units; percentage differences are undefined when the mean is zero. Date filters do not change the baseline. These comparisons are retrospective. The CSV also retains the earlier median and its available-year baseline for reproducibility.');
   const passed = validation.passed === true;
   text('validation-status', meta.alpha === null ? `County calibration unestimable. ${validation.reason ?? 'Adjusted comparisons are withheld.'}` : passed ? 'This county calibration passed the predefined held-out comparison.' : 'This county calibration did not pass the predefined held-out comparison. Adjusted values remain experimental.');
   $('validation-status').classList.toggle('passed', passed);
