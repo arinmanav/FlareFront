@@ -9,6 +9,7 @@ import { FIRE_RAMP, fireColor } from './fire-colors.js';
 import { historyNumber, signedNumber, renderCalendarValues, renderDailyCalendar } from './history-view.js';
 import { createPatternsView } from './patterns-view.js';
 import { bindMonthControls } from './month-controls.js';
+import { WEEKLY_COLOR } from './plot-colors.js';
 
 const state = {
   series: 'main', start: '2001-01', end: '2025-12', selected: '2020-08',
@@ -402,7 +403,7 @@ function renderWeekly(record) {
   layout.xaxis.tickvals = bins.map((bin) => bin.week);
   layout.yaxis.title = { text: 'Observed Detections', font: { size: 14 } };
   layout.yaxis.rangemode = 'tozero';
-  return Plotly.react($('weekly-trend'), [{ type: 'scatter', mode: 'lines+markers', x: bins.map((bin) => bin.week), y: bins.map((bin) => bin.value), line: { color: colors[source], width: 2 }, marker: { color: colors[source], size: 6 }, connectgaps: false, hovertemplate: 'Week of %{x|%b %d, %Y}<br>%{y:,.0f} detections<extra></extra>' }], layout, chartConfig);
+  return Plotly.react($('weekly-trend'), [{ type: 'scatter', mode: 'lines+markers', x: bins.map((bin) => bin.week), y: bins.map((bin) => bin.value), line: { color: WEEKLY_COLOR, width: 2 }, marker: { color: WEEKLY_COLOR, size: 6 }, connectgaps: false, hovertemplate: 'Week of %{x|%b %d, %Y}<br>%{y:,.0f} detections<extra></extra>' }], layout, chartConfig);
 }
 
 function renderComparison(months) {

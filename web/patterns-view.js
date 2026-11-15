@@ -2,6 +2,7 @@ import { MONTH_NAMES, SERIES_NAMES } from './calendar.js';
 import { longTermPatterns, compareYears } from './patterns.js';
 import { historyNumber } from './history-view.js';
 import { downloadCsv, exportChart } from './exports.js';
+import { PATTERN_COLORS } from './plot-colors.js';
 
 const $ = (id) => document.getElementById(id);
 const coefficient = (value) => value === null ? 'Unavailable' : value.toFixed(2);
@@ -45,7 +46,7 @@ export function createPatternsView(getContext, chartLayout) {
     const years = analysis.years, first = years.find((row) => row.year === Number($('pattern-first-year').value)), second = years.find((row) => row.year === Number($('pattern-second-year').value));
     $('pattern-year-controls').hidden = mode !== 'similarity';
     $('pattern-scope').textContent = `${context.scope} · ${SERIES_NAMES[sensor]} · ${years.length} complete calendar years${years.length ? `, ${years[0].year}–${years.at(-1).year}` : ''}. Uses the full archive, independently of the calendar’s date filters and series.`;
-    const traces = [], addTrace = (name, x, y, alternate = false) => traces.push({ type: 'scatter', mode: 'lines+markers', name, x, y, connectgaps: false, line: { color: alternate ? '#b95320' : '#426c99', dash: alternate ? 'dash' : 'solid', width: 2 }, marker: { size: 5, symbol: alternate ? 'square' : 'circle' }, hovertemplate: '%{x}<br>%{y:,.2f} detections<extra>%{fullData.name}</extra>' });
+    const traces = [], addTrace = (name, x, y, alternate = false) => traces.push({ type: 'scatter', mode: 'lines+markers', name, x, y, connectgaps: false, line: { color: PATTERN_COLORS[alternate ? 1 : 0], dash: alternate ? 'dash' : 'solid', width: 2 }, marker: { size: 5, symbol: alternate ? 'square' : 'circle' }, hovertemplate: '%{x}<br>%{y:,.2f} detections<extra>%{fullData.name}</extra>' });
     const layout = chartLayout({ showlegend: true, margin: { l: 64, r: 24, t: 76, b: 54 }, legend: { orientation: 'h', x: 0, y: 1.05, xanchor: 'left', yanchor: 'bottom', bgcolor: '#fff', bordercolor: '#444444', borderwidth: .6, font: { size: 12 } } });
     layout.yaxis.rangemode = 'tozero';
     layout.yaxis.title = { text: 'Reported Detections', font: { size: 14 } };

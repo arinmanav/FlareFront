@@ -88,7 +88,7 @@ function renderForecast(inputs, cutoff, evidence) {
     period.wind_min_mps === period.wind_max_mps ? format(period.wind_min_mps, ' m/s') : `${format(period.wind_min_mps)}–${format(period.wind_max_mps)} m/s`,
     format(period.precipitation_probability_pct, '%'),
   ])));
-  if (!forecast.periods?.length) $('forecast-body').append(tableRow(['No Forecast Periods Available', '—', '—', '—', '—']));
+  if (!forecast.periods?.length) $('forecast-body').append(tableRow(['No Forecast Periods Available', '-', '-', '-', '-']));
   readout('weather-observation', [
     ['Station', observation.station_name ? `${observation.station_name} (${observation.station_id})` : 'Unavailable'],
     ['Observed At', date(observation.timestamp)], ['Temperature', format(observation.temperature_c, ' °C')],

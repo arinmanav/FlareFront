@@ -149,7 +149,7 @@ def weekly_trend(data):
     values = [sum(bins[week]) if all(np.isfinite(bins[week])) else np.nan for week in weeks]
     fig, ax = plt.subplots(figsize=LINE_SIZE)
     fig.subplots_adjust(left=0.13, right=0.97, bottom=0.22, top=0.96)
-    ax.plot(weeks, values, color="#cc5b21", linewidth=2)
+    ax.plot(weeks, values, color="#8054a6", linewidth=2)
     ax.set(xlabel="Week Starting (UTC)", ylabel="Terra-Equivalent Detections")
     ax.set_xticks(weeks)
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%d %b %Y"))

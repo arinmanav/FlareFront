@@ -30,7 +30,7 @@ export function renderCalendarValues(container, { data, months, series, selected
     button.addEventListener('click', () => onSelect(key)); month.append(button); line.append(month);
     const anomaly = monthlyAnomaly(data.months, row, series, data.meta.switch_year);
     for (const value of [historyNumber(seriesValue(row, series)), historyNumber(anomaly.baseline.value), signedNumber(anomaly.difference)]) {
-      const cell = line.insertCell(); cell.textContent = value === 'Unavailable' ? '—' : value;
+      const cell = line.insertCell(); cell.textContent = value === 'Unavailable' ? '-' : value;
       if (value === 'Unavailable') cell.setAttribute('aria-label', value);
     }
   }
@@ -59,7 +59,7 @@ export function renderDailyCalendar(container, data, record, series) {
     cell.setAttribute('aria-label', `${day.date}: ${day.value === null ? 'source unavailable' : `${day.value} reported detections`}`);
     cell.title = cell.getAttribute('aria-label');
     const date = document.createElement('span'); date.textContent = day.day;
-    const count = document.createElement('strong'); count.textContent = day.value === null ? '—' : historyNumber(day.value);
+    const count = document.createElement('strong'); count.textContent = day.value === null ? '-' : historyNumber(day.value);
     cell.append(date, count);
   }
   while (week.cells.length < 7) week.insertCell();

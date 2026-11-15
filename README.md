@@ -29,6 +29,8 @@ Later-period errors use the same 72 months per county, in detections per month. 
 - **Long-Term Patterns:** compare monthly means and medians, annual totals with trailing five-year averages, or the twelve-month profiles of any two complete years. One raw sensor is used at a time so the calendar's 2013 source switch does not create a trend.
 - **Compare Locations:** rotate a 3D comparison or inspect a 2D agreement plot. Change between raw VIIRS, count ratio and spatial aggregation, with errors and limitations beside the plots.
 
+Harmonized views open by default; the calendar and comparison selectors also expose unharmonized observations. Calendar intensity keeps the warm logarithmic ramp. Harmonization uses gray reference, teal adjusted and amber raw traces; weekly activity uses purple, and long-term comparisons use blue and plum.
+
 Buttons have visible boundaries, keyboard focus and pressed states. Sections expand on demand; numeric calendar values provide a keyboard-accessible alternative to color. Calendar colors follow log(1 + count), using a fixed full-record range per sensor and area. Daily cells retain exact numbers and choose black or white text with at least 4.5:1 contrast.
 
 **Select an area:** draw a rectangle with two clicks or taps, or enter latitude, longitude and a radius of 0.1-100 km. The center must be inside the selected county; the analysis uses the intersection. Custom areas contain raw sensor counts only. County coefficients and validation do not transfer to an arbitrary shape. Escape cancels drawing; Clear Area restores the county record.

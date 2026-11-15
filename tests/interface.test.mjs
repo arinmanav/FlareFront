@@ -69,10 +69,14 @@ test('Published UI exposes the specified comparison controls and preserves the c
   assert.match(html, /id="comparison-status"[^>]*role="status"/);
   const method = html.match(/<select id="study-method"[^>]*>(.*?)<\/select>/s)[1];
   assert.deepEqual([...method.matchAll(/value="([^"]+)"/g)].map((match) => match[1]), ['raw', 'ratio', 'spatial_ratio']);
-  assert.match(method, /value="ratio" selected>Count Ratio/);
+  assert.match(method, /value="ratio" selected>Harmonized - Count Ratio/);
   const view = html.match(/<select id="study-view"[^>]*>(.*?)<\/select>/s)[1];
   assert.match(view, /value="3d" selected>3D View/);
   assert.match(view, /value="2d">2D View/);
+  assert.match(html, /value="main" selected>Harmonized Record/);
+  assert.match(html, /value="adjusted" selected>Harmonized VIIRS/);
+  assert.match(html, /value="snpp">Unharmonized VIIRS/);
+  assert.match(method, /value="raw">Unharmonized VIIRS/);
   for (const id of ['heatmap', 'county-map', 'region-select', 'example-terra', 'example-viirs', 'example-adjusted', 'cross-location-chart', 'study-chart-caption', 'study-summary', 'study-results']) assert.match(html, new RegExp(`id="${id}"`));
   assert.match(html, /Count Ratio Calibration/);
   assert.match(html, /cannot reproduce MODIS pixels or align MODIS and VIIRS overpass times/);

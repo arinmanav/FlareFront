@@ -1,3 +1,4 @@
+import { HARMONIZATION_COLORS } from './plot-colors.js';
 const METHODS = ['raw', 'ratio', 'lad', 'spatial_ratio', 'spatial_lad', 'selected', 'seasonal'];
 const LABELS = { raw: 'Raw VIIRS', ratio: 'Count ratio', lad: 'Absolute-error fit', spatial_ratio: 'Spatial aggregation', spatial_lad: 'Spatial absolute-error fit', selected: 'Training-selected method', seasonal: 'Seasonal baseline' };
 const COLORS = ['#275b91', '#bb5723', '#55755e', '#7c5d8d', '#a57b24'];
@@ -59,8 +60,8 @@ export function comparisonTraces(study, method, view) {
     }))];
   }
   return study.regions.flatMap((region, index) => [
-    { key: 'terra', name: 'Terra MODIS reference', color: '#275b91', dash: 'solid' },
-    { key: method, name: method === 'raw' ? 'VIIRS observed' : 'VIIRS adjusted', color: '#bb5723', dash: 'dash' },
+    { key: 'terra', name: 'Terra MODIS reference', color: HARMONIZATION_COLORS.reference, dash: 'solid' },
+    { key: method, name: method === 'raw' ? 'VIIRS observed' : 'VIIRS adjusted', color: method === 'raw' ? HARMONIZATION_COLORS.raw : HARMONIZATION_COLORS.adjusted, dash: 'dash' },
   ].map((series) => ({ type: 'scatter3d', mode: 'lines', name: series.name, legendgroup: series.name, showlegend: index === 0,
     x: region.months.map((_row, month) => month), y: region.months.map(() => index), z: region.months.map((row) => row[series.key]),
     customdata: region.months.map((row) => [row.date.slice(0, 7), region.county]),
@@ -128,7 +129,7 @@ export async function initializeComparison() {
         layout.xaxis = { ...axis, mirror: true, automargin: true, title: { text: 'Terra MODIS Detections' } };
         layout.yaxis = { ...axis, mirror: true, automargin: true, title: { text: method.value === 'raw' ? 'Observed VIIRS Detections' : 'VIIRS Terra-Equivalent Detections' } };
       }
-      const caption = `${LABELS[method.value]} · 72 monthly pairs per county, 2020–2025. ${threeDimensional ? 'Drag to rotate. Each row is a county; blue is Terra and orange is VIIRS. Straight segments join monthly observations without smoothing.' : 'Each point is a month; the dashed line marks equal counts.'} Linear axes rescale with the method. Training uses 2013–2019; later years were previously inspected, so this is an exploratory comparison.`;
+      const caption = `${LABELS[method.value]} · 72 monthly pairs per county, 2020–2025. ${threeDimensional ? `Drag to rotate. Each row is a county; gray is Terra and ${method.value === 'raw' ? 'amber is unharmonized' : 'teal is harmonized'} VIIRS. Straight segments join monthly observations without smoothing.` : 'Each point is a month; the dashed line marks equal counts.'} Linear axes rescale with the method. Training uses 2013–2019; later years were previously inspected, so this is an exploratory comparison.`;
       document.getElementById('study-chart-caption').textContent = caption;
       chart.setAttribute('aria-label', caption);
       await Plotly.react(chart, comparisonTraces(study, method.value, view.value), layout, { responsive: true, displayModeBar: false, scrollZoom: false });

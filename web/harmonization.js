@@ -1,4 +1,5 @@
 import { monthKey, MONTH_NAMES } from './calendar.js';
+import { HARMONIZATION_COLORS } from './plot-colors.js';
 
 const number = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 });
 const count = (value) => Number.isFinite(value) && value >= 0;
@@ -117,8 +118,8 @@ export async function initializeHarmonization(data) {
     element('harmonization-caption').textContent = `${test.start_year}–${test.end_year} · ${rows.length} held-out monthly pairs. Terra is observed counts; Suomi-NPP is ${adjusted ? 'α × observed counts (Terra-equivalent detections)' : 'observed counts'}. The linear y-axis rescales when the mode changes. No logarithmic transform is applied. These are hotspot detections, not incident counts.`;
     element('harmonization-chart').setAttribute('aria-label', `${adjusted ? 'After' : 'Before'} harmonization: monthly Terra and Suomi-NPP detections, ${test.start_year} through ${test.end_year}. Linear y-axis rescales with mode.`);
     return Plotly.react(element('harmonization-chart'), [
-      { type: 'scatter', mode: 'lines', name: 'Terra MODIS (observed)', x: dates, y: values((row) => row.terra), line: { color: '#426c99', width: 2 }, connectgaps: false, hovertemplate: '%{x|%b %Y}<br>%{y:,.0f} observed detections<extra>%{fullData.name}</extra>' },
-      { type: 'scatter', mode: 'lines', name: adjusted ? 'α × Suomi-NPP VIIRS' : 'Suomi-NPP VIIRS (observed)', x: dates, y: values((row) => adjusted ? data.meta.alpha * row.snpp : row.snpp), line: { color: '#df6b25', width: 2 }, connectgaps: false, hovertemplate: `%{x|%b %Y}<br>%{y:,.2f} ${adjusted ? 'Terra-equivalent' : 'observed'} detections<extra>%{fullData.name}</extra>` },
+      { type: 'scatter', mode: 'lines', name: 'Terra MODIS (observed)', x: dates, y: values((row) => row.terra), line: { color: HARMONIZATION_COLORS.reference, width: 2 }, connectgaps: false, hovertemplate: '%{x|%b %Y}<br>%{y:,.0f} observed detections<extra>%{fullData.name}</extra>' },
+      { type: 'scatter', mode: 'lines', name: adjusted ? 'α × Suomi-NPP VIIRS' : 'Suomi-NPP VIIRS (observed)', x: dates, y: values((row) => adjusted ? data.meta.alpha * row.snpp : row.snpp), line: { color: adjusted ? HARMONIZATION_COLORS.adjusted : HARMONIZATION_COLORS.raw, width: 2, dash: 'dash' }, connectgaps: false, hovertemplate: `%{x|%b %Y}<br>%{y:,.2f} ${adjusted ? 'Terra-equivalent' : 'observed'} detections<extra>%{fullData.name}</extra>` },
     ], {
       paper_bgcolor: '#ffffff', plot_bgcolor: '#ffffff', font: { family: 'Arial', size: 12, color: '#20251f' },
       margin: { l: 68, r: 24, t: 75, b: 58 }, showlegend: true, hovermode: 'closest',

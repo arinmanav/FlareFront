@@ -17,18 +17,20 @@ from analysis.figures import export, frame, plot_style
 SIZE_3D = (7.16, 5.37)
 SIZE_2D = (7.16, 3.58)
 COLORS = ['#275b91', '#bb5723', '#55755e', '#7c5d8d', '#a57b24']
+HARMONIZATION_COLORS = {'reference': '#59636e', 'raw': '#bc6c00', 'adjusted': '#007f73'}
 MARKERS = ['o', 's', 'D', '^', 'v']
 METHODS = ('raw', 'ratio', 'spatial_ratio')
 
 
 def figure_3d(regions, method):
+    comparison_color = HARMONIZATION_COLORS['raw' if method == 'raw' else 'adjusted']
     fig = plt.figure(figsize=SIZE_3D)
     ax = fig.add_subplot(projection='3d')
     for index, region in enumerate(regions):
         x = np.arange(len(region['months']))
         y = np.full(len(x), index)
-        ax.plot(x, y, [row['terra'] for row in region['months']], color=COLORS[0], linewidth=1.8)
-        ax.plot(x, y, [row[method] for row in region['months']], color=COLORS[1], linewidth=1.8, linestyle='--')
+        ax.plot(x, y, [row['terra'] for row in region['months']], color=HARMONIZATION_COLORS['reference'], linewidth=1.8)
+        ax.plot(x, y, [row[method] for row in region['months']], color=comparison_color, linewidth=1.8, linestyle='--')
     ax.set(xlabel='Month (UTC)', ylabel='County', zlabel='Detections', xlim=(0, 71), ylim=(-.15, len(regions) - .85))
     ax.set_xticks([0, 12, 24, 36, 48, 60], ['2020', '2021', '2022', '2023', '2024', '2025'])
     ax.set_yticks(range(len(regions)), [region['county'].replace(' County', '') for region in regions])
@@ -44,8 +46,8 @@ def figure_3d(regions, method):
     ax.xaxis.labelpad = 12
     ax.yaxis.labelpad = 22
     ax.zaxis.labelpad = 8
-    legend = fig.legend(handles=[Line2D([], [], color=COLORS[0], lw=1.8, label='Terra MODIS reference'),
-        Line2D([], [], color=COLORS[1], lw=1.8, ls='--', label='VIIRS observed' if method == 'raw' else 'VIIRS adjusted')],
+    legend = fig.legend(handles=[Line2D([], [], color=HARMONIZATION_COLORS['reference'], lw=1.8, label='Terra MODIS reference'),
+        Line2D([], [], color=comparison_color, lw=1.8, ls='--', label='VIIRS observed' if method == 'raw' else 'VIIRS adjusted')],
         loc='upper center', bbox_to_anchor=(.5, .97), ncol=2, frameon=True, fancybox=False, framealpha=1)
     legend.get_frame().set_edgecolor('#444444')
     legend.get_frame().set_linewidth(.6)

@@ -64,7 +64,7 @@ table.example-values { display:table; table-layout:fixed; width:100%; margin:0; 
 .example-values th { text-align:right; font-size:12px; font-weight:500; color:var(--muted); padding:6px 10px; border-bottom:1px solid #bac4ce; }
 .example-values td { text-align:right; font-size:24px; font-weight:500; font-variant-numeric:tabular-nums; padding:6px 10px; border-bottom:0; }
 .example-values th+th,.example-values td+td { border-left:1px solid var(--line); }
-#example-adjusted { color:var(--blue); }
+#example-adjusted { color:#007f73; }
 .example-bottom { font-size:12px; }
 .example-bottom a { flex-shrink:0; }
 .harmonization-example .caption { margin-top:3px; font-size:12px; }
