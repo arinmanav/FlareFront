@@ -7,6 +7,7 @@ import { subsetRecord, areaDescription } from './area.js';
 import { createAreaControls } from './area-controls.js';
 import { FIRE_RAMP, fireColor } from './fire-colors.js';
 import { historyNumber, signedNumber, renderCalendarValues, renderDailyCalendar } from './history-view.js';
+import { createPatternsView } from './patterns-view.js';
 
 const state = {
   series: 'main', start: '2001-01', end: '2025-12', selected: '2025-01',
@@ -38,6 +39,8 @@ function chartLayout(overrides = {}) {
     ...overrides,
   };
 }
+
+let patternsView;
 
 async function fetchJson(path, options) {
   const response = await fetch(path, options);
@@ -166,6 +169,11 @@ const areaExportHeaders = ['county_geoid', 'area_description', 'area_geometry', 
 const areaFilename = () => state.area ? '-custom-area' : '';
 
 async function initialize() {
+  patternsView = createPatternsView(() => ({ data: state.data,
+    scope: state.region ? `${countyName(state.region)} · ${areaDescription(state.area)}` : '',
+    filename: `flarefront-${state.region?.id}${areaFilename()}`,
+    headers: areaExportHeaders, fields: state.data ? areaExportFields() : [],
+  }), chartLayout);
   bindControls();
   calendarControls(true);
   const comparisonReady = initializeComparison();
@@ -341,7 +349,7 @@ async function render() {
   text('daily-description', `${days.detectionDays} UTC ${days.detectionDays === 1 ? 'date' : 'dates'} with reported detections · ${days.totalDays - days.availableDays} source dates unavailable. Observing coverage is unverified. Counts are raw, including when the monthly calendar shows Terra-equivalent estimates.`);
   renderPeaks(months);
   renderMap(value === null ? [] : selectedPoints ?? []);
-  await Promise.all([renderHeatmap(months), renderWeekly(record), renderComparison(months)]);
+  await Promise.all([renderHeatmap(months), renderWeekly(record), renderComparison(months), patternsView.render()]);
 }
 
 async function renderHeatmap(months) {

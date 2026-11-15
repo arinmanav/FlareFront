@@ -18,6 +18,21 @@ Area selections update the calendar, mapped observations, daily, weekly and annu
 
 The **Values And Anomalies** view provides a numeric alternative to the heatmap, with keyboard-selectable months. **Daily Activity And Trends** includes a day-by-day fire activity calendar with exact raw sensor counts, plus weekly totals. The sequential fire palette decreases in luminance as counts rise; daily cells choose black or white text to meet at least 4.5:1 contrast. Missing cells use a dash and explicit accessible labels. Counts represent satellite hotspot detections, not a verified count of distinct fires; dates with detections are not observing-coverage days.
 
+**Long-Term Patterns** compares monthly means and medians, annual totals with trailing five-year averages, and two years' twelve-month profiles. It uses one raw sensor at a time across the full record: Terra from 2001, Aqua from 2003, or Suomi-NPP from 2013. Only years with twelve available, non-partial monthly values qualify. Observed zeros stay included; missing years break the five-year moving average. Complete records do not establish complete observing coverage. County and custom-area selections both apply; calendar date filters and the harmonized series selector do not change this separate analysis.
+
+The year comparison reports Pearson correlation of monthly counts and [Spearman correlation](https://www.itl.nist.gov/div898/software/dataplot/refman2/ch2/rankcorr.pdf) of their ranks, using average ranks for ties. Constant profiles and self-comparisons have undefined correlations. The all-years summary takes the median Spearman coefficient across unique eligible year pairs; these pairs share years and are not independent replicates. Chart values and all pairwise coefficients are downloadable as CSV with sensor and area metadata. Charts export in the approved 7.16 × 3.58 in format, as 600 dpi PNG and vector SVG.
+
+Terra's 2001–2025 record illustrates why averages and recurrence need separate interpretation:
+
+| County | Highest Monthly Mean | Mean Detections | Median For That Month | Median Year-Pair Spearman ρ |
+| --- | --- | ---: | ---: | ---: |
+| Los Angeles | September | 63.64 | 2 | 0.058 |
+| San Diego | October | 77.32 | 0 | 0.042 |
+| Santa Clara | August | 25.72 | 0 | −0.091 |
+| Sacramento | October | 2.56 | 2 | 0.182 |
+
+Each correlation summary contains 300 year pairs. The large mean–median differences show the influence of extreme months, while the near-zero median correlations do not support a consistently repeated annual profile. These are descriptive hotspot statistics, not a fitted climate trend or demonstrated forecasting skill. Computation lives in [patterns.js](web/patterns.js); numerical tests check the four counties against independent Python/SciPy calculations.
+
 | City | County Coverage | Qualifying Observations | Adjusted MAE | Seasonal MAE | Held-Out Criterion |
 | --- | --- | ---: | ---: | ---: | --- |
 | Los Angeles | Los Angeles | 26,113 | 4.924891 | 18.513889 | Passed |

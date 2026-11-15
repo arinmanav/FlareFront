@@ -76,7 +76,33 @@
             </section>
           </div>
           <p class="measurement-note" id="region-scope">Coverage is county-wide. Hotspots are satellite detections, not individual fires; missing detections do not establish an absence of fire.</p>
-          <p class="comparison-link"><a href="#comparison" data-open-comparison>Compare Four Locations</a></p>
+          <p class="comparison-link"><a href="#comparison" data-open-comparison>Compare Four Locations</a><a href="#long-term-patterns" data-calendar-target="long-term-patterns">Explore Long-Term Patterns</a></p>
+          <details class="disclosure" id="long-term-patterns">
+            <summary>Long-Term Patterns<span class="disclosure-icon" aria-hidden="true"></span></summary>
+            <div class="disclosure-body">
+              <p>Compare average seasons, changes over several years, and the similarity of individual years.</p>
+              <div class="pattern-controls">
+                <label for="pattern-sensor">Sensor<select id="pattern-sensor"><option value="terra">Terra MODIS · 2001–2025</option><option value="aqua">Aqua MODIS · 2003–2025</option><option value="snpp">Suomi-NPP VIIRS · 2013–2025</option></select></label>
+                <label for="pattern-mode">Comparison<select id="pattern-mode"><option value="seasonal">Average Seasonal Cycle</option><option value="annual">Annual Counts And Five-Year Average</option><option value="similarity">Compare Two Years</option></select></label>
+                <div id="pattern-year-controls" hidden><label for="pattern-first-year">First Year<select id="pattern-first-year"></select></label><label for="pattern-second-year">Second Year<select id="pattern-second-year"></select></label></div>
+              </div>
+              <p id="pattern-scope" class="caption"></p>
+              <h3 id="pattern-title">Average Seasonal Cycle</h3>
+              <p id="pattern-description" class="caption"></p>
+              <div id="pattern-chart" class="chart trend" role="img" aria-label="Long-term hotspot detection patterns"></div>
+              <p id="pattern-summary" aria-live="polite"></p>
+              <div class="download-group"><button type="button" data-pattern-format="png">PNG</button><button type="button" data-pattern-format="svg">SVG</button><button type="button" id="download-patterns">Chart Values CSV</button></div>
+              <p id="pattern-status" class="caption" role="status"></p>
+              <details class="inline-disclosure"><summary>Values And Calculation Details</summary><div>
+                <div id="pattern-values"></div>
+                <p>Complete years have twelve reported, non-partial monthly values. Zeros remain included. Missing or explicitly partial months exclude the whole year; this does not establish complete satellite observing coverage. The mean includes every eligible year, including the selected calendar year. The median is the middle value, averaging the two middle values for an even number of years.</p>
+                <p>Year-pair correlations match January with January through December with December. Spearman uses average ranks for ties. Scores range from −1 to +1; values near zero indicate little rank or linear association, depending on the coefficient. Constant profiles have undefined correlation. The summary is the median Spearman coefficient over unique year pairs, excluding undefined pairs and self-comparisons. Pairs share years and are not independent replicates.</p>
+                <button type="button" id="download-correlations" class="secondary-button">All Year-Pair Correlations CSV</button>
+                <p>These comparisons keep sensors separate to avoid the harmonized calendar’s source switch. Processing versions, satellite sampling and cloud cover can still change detection counts. The patterns describe reported hotspots, not distinct fires, climate attribution or validated predictions. Small or mostly zero area records may have little seasonal signal.</p>
+                <p><a href="https://www.itl.nist.gov/div898/software/dataplot/refman2/ch2/rankcorr.pdf" target="_blank" rel="noopener">Rank Correlation · NIST</a> · <a href="https://firms.modaps.eosdis.nasa.gov/map/" target="_blank" rel="noopener">Detection Limitations · NASA FIRMS</a></p>
+              </div></details>
+            </div>
+          </details>
           <details class="disclosure" id="harmonization-details"><summary>Sensor Comparison And Validation<span class="disclosure-icon" aria-hidden="true"></span></summary><div class="disclosure-body">
           <section class="story-section" id="harmonization" aria-labelledby="harmonization-title">
             <div class="section-heading"><div><h2 id="harmonization-title">Count Ratio Calibration</h2></div><span id="harmonization-status" class="result-label"></span></div>

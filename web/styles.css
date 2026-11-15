@@ -262,6 +262,23 @@ button:disabled { cursor:default; opacity:.65; }
 }
 .comparison-link { padding:0 0 24px; font-size:13px; }
 .comparison-link a { display:inline-flex; align-items:center; min-height:44px; }
+.comparison-link { display:flex; flex-wrap:wrap; gap:8px 24px; }
+.pattern-controls { display:flex; flex-wrap:wrap; align-items:end; gap:12px 24px; margin:12px 0; }
+.pattern-controls label { display:flex; flex-direction:column; gap:6px; color:var(--muted); font-size:14px; }
+.pattern-controls select { min-height:44px; max-width:100%; }
+#pattern-year-controls { display:flex; gap:16px; }
+#pattern-year-controls[hidden] { display:none; }
+#pattern-description,#pattern-scope,#pattern-summary { max-width:90ch; margin:12px 0; line-height:1.7; }
+#pattern-summary { border-left:2px solid var(--blue); padding-left:16px; }
+#pattern-values { overflow-x:auto; }
+#pattern-values table { font-variant-numeric:tabular-nums; font-size:13px; }
+#pattern-values caption { text-align:left; padding:12px 0; color:var(--muted); }
+#pattern-values th,#pattern-values td { padding:10px; text-align:right; }
+#pattern-values th:first-child { text-align:left; }
+@media(max-width:420px) {
+  .pattern-controls>label { width:100%; }
+  .pattern-controls select { width:100%; }
+}
 .study-toolbar { display:flex; flex-wrap:wrap; align-items:flex-end; gap:20px; padding:12px 0 20px; border-bottom:1px solid var(--line); }
 .study-toolbar label { display:flex; flex-direction:column; gap:8px; color:var(--muted); font-size:12px; }
 .study-toolbar select { min-height:44px; }

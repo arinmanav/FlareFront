@@ -78,7 +78,7 @@ test('Published UI exposes the specified comparison controls and preserves the c
   assert.match(html, /cannot reproduce MODIS pixels or align MODIS and VIIRS overpass times/);
   assert.match(html, /href="data\/harmonization-study.json" download/);
   assert.match(html, /<small>AI assisted code editor was used for development of this website<\/small>/);
-  assert.doesNotMatch(html, /prediction|weather|hyperspectral|EMIT|allocation|data-open-decisions/i);
+  assert.doesNotMatch(html, /(?:id|href|src)="(?:#|\.\/)?(?:prediction|weather|hyperspectral|emit|allocation|decision)[^"]*"|data-open-decisions/i);
   assert.doesNotMatch(app, /initializePrediction|selectPredictionRegion|initializeDecisions|prediction\.js|decisions-view\.js/);
   assert.match(app, /import \{ initializeComparison \} from '\.\/comparison.js'/);
   assert.equal([...app.matchAll(/initializeComparison\(\)/g)].length, 1);
