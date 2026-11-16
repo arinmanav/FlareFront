@@ -8,8 +8,7 @@ member provenance are retained. Data access: https://firms.modaps.eosdis.nasa.go
 These detections do not imply NASA endorsement of this project.
 
 U.S. Census Bureau
-Los Angeles (06037), San Diego (06073), Santa Clara (06085) and Sacramento
-(06067) county geometry, TIGERweb State_County service,
+California county geometry, TIGERweb State_County service,
 January 1, 2026 vintage; coordinates in WGS84 longitude/latitude.
 https://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb/State_County/MapServer/1
 
@@ -45,4 +44,4 @@ https://www.openstreetmap.org/copyright
 https://operations.osmfoundation.org/policies/tiles/
 
 Development tools
-AI assisted code editor was used for development of this website
+An AI-assisted code editor was used for editting, debugging and documenting the code used in this project.

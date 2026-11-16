@@ -60,7 +60,7 @@ export function countyContains(county, latitude, longitude) {
 export function validateAreaCoverage(area, county) {
   const latitude = area.type === 'circle' ? area.latitude : (area.south + area.north) / 2;
   const longitude = area.type === 'circle' ? area.longitude : (area.west + area.east) / 2;
-  if (!countyContains(county, latitude, longitude)) throw new Error('The area center is outside this county. Choose a center inside the selected county, or switch counties. This pilot covers four counties only.');
+  if (!countyContains(county, latitude, longitude)) throw new Error('The area center is outside this county. Choose a center inside the selected county, or switch counties.');
   return area;
 }
 

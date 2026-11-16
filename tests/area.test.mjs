@@ -32,7 +32,7 @@ test('Given county polygons with holes and islands, only covered centers are acc
     else assert.throws(() => validateAreaCoverage(circleArea(latitude, longitude, 1), geometry), /outside this county/);
   }
   assert.doesNotThrow(() => validateAreaCoverage(circle, county));
-  assert.throws(() => validateAreaCoverage(circleArea(40.7, -74, 10), county), /four counties/);
+  assert.throws(() => validateAreaCoverage(circleArea(40.7, -74, 10), county), /outside this county/);
 });
 
 test('Given a custom area, raw counts match the independent source oracle while unavailable sensor periods remain null', () => {

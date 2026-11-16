@@ -123,4 +123,4 @@ Background map data is © [OpenStreetMap contributors](https://www.openstreetmap
 
 Original application and analysis code is licensed under [Apache-2.0](LICENSE). See [NOTICE](NOTICE) and [THIRD_PARTY_NOTICES](THIRD_PARTY_NOTICES) for attribution and third-party terms.
 
-AI assisted code editor was used for development of this website
+An AI-assisted code editor was used for editting, debugging and documenting the code used in this project.

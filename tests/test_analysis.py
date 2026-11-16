@@ -271,7 +271,7 @@ class AnalysisContractTests(unittest.TestCase):
             self.assertTrue(math.isfinite(dashboard["meta"]["alpha"]))
             self.assertGreater(dashboard["meta"]["alpha"], 0)
             self.assertFalse(dashboard["meta"]["coverage_verified"])
-            acknowledgment = "AI assisted code editor was used for code development"
+            acknowledgment = "An AI-assisted code editor was used for editting, debugging and documenting the code used in this project."
             self.assertEqual(dashboard["meta"]["software_development"], acknowledgment)
             with (output_dir / "hotspots.csv").open(encoding="utf-8", newline="") as handle:
                 detections = list(csv.DictReader(handle))

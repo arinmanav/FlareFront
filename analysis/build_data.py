@@ -19,7 +19,7 @@ SENSORS = ("terra", "aqua", "snpp")
 PRODUCTS = ("modis", "viirs-snpp")
 POINT_COLUMNS = ["date", "time", "lat", "lon", "sensor", "confidence", "version",
                  "frp", "source_archive", "source_member"]
-SOFTWARE_DEVELOPMENT = "AI assisted code editor was used for code development"
+SOFTWARE_DEVELOPMENT = "An AI-assisted code editor was used for editting, debugging and documenting the code used in this project."
 REQUIRED_COLUMNS = {"source_archive", "source_member", "latitude", "longitude",
                     "scan", "track", "acq_date", "acq_time", "satellite", "instrument",
                     "confidence", "version", "frp", "daynight", "type"}
